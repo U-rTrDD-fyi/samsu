@@ -487,6 +487,11 @@ final class M3qRootEngine {
         status("KernelSU root denied - reboot and run again", 0xffffb4ab);
         log("KernelSU did not accept the root request within 2 seconds. "
                 + "Reboot and run again.");
+        RootState state = checkRoot(false);
+        if (state.ready()) {
+            log("KernelSU became active anyway; staging not required.");
+            return 0;
+        }
         return 125;
     }
 
