@@ -362,7 +362,11 @@ final class M3qRootEngine {
 
     private void configureRootEnvironment(Map<String, String> env,
                                           boolean tracefs, String slide) {
-        env.put("SLIDE_SOURCE", tracefs ? "tracefs" : "auto");
+        // "auto" is the only safe universal value: tracefs-capable payloads
+        // (bundled pa1q) still prefer the tracefs route first, while registry
+        // payloads built without APP_TRACEFS_SLIDE reject "tracefs" outright
+        // ("slide unknown source") and fail before the physical route runs.
+        env.put("SLIDE_SOURCE", "auto");
         env.put("CVE43499_ROOT_HELPER",
                 nativeFile(HELPER).getAbsolutePath());
         env.put("EXPLOIT_ATTEMPT_TIMEOUT_SEC", "600");
