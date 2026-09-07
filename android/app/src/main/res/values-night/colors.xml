@@ -1,24 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="m3q_primary">#9BCBFA</color>
-    <color name="m3q_on_primary">#003355</color>
-    <color name="m3q_primary_container">#164A70</color>
-    <color name="m3q_on_primary_container">#D0E7FF</color>
-    <color name="m3q_secondary">#B2CCC6</color>
-    <color name="m3q_on_secondary">#1D3531</color>
-    <color name="m3q_secondary_container">#344C48</color>
-    <color name="m3q_on_secondary_container">#CEE9E3</color>
-    <color name="m3q_background">#0D1117</color>
-    <color name="m3q_surface">#151B23</color>
-    <color name="m3q_surface_variant">#202833</color>
-    <color name="m3q_on_surface">#E6EDF3</color>
-    <color name="m3q_on_surface_variant">#AAB7C4</color>
-    <color name="m3q_outline">#82909E</color>
-    <color name="m3q_outline_variant">#37424E</color>
+    <color name="m3q_primary">#9E9E9E</color>
+    <color name="m3q_on_primary">#111111</color>
+    <color name="m3q_primary_container">#2A2A2A</color>
+    <color name="m3q_on_primary_container">#E0E0E0</color>
+    <color name="m3q_secondary">#8A8A8A</color>
+    <color name="m3q_on_secondary">#111111</color>
+    <color name="m3q_secondary_container">#2A2A2A</color>
+    <color name="m3q_on_secondary_container">#E0E0E0</color>
+    <color name="m3q_background">#000000</color>
+    <color name="m3q_surface">#0E0E0E</color>
+    <color name="m3q_surface_variant">#1A1A1A</color>
+    <color name="m3q_on_surface">#E6E6E6</color>
+    <color name="m3q_on_surface_variant">#9E9E9E</color>
+    <color name="m3q_outline">#6E6E6E</color>
+    <color name="m3q_outline_variant">#2C2C2C</color>
     <color name="m3q_success">#52D89A</color>
     <color name="m3q_warning">#FFB65C</color>
     <color name="m3q_error">#FFB4AB</color>
-    <color name="m3q_neutral">#AAB7C4</color>
-    <color name="m3q_log_surface">#090D12</color>
-    <color name="m3q_log_text">#D7E2EC</color>
+    <color name="m3q_neutral">#9E9E9E</color>
+    <color name="m3q_log_surface">#050505</color>
+    <color name="m3q_log_text">#CCCCCC</color>
+    <color name="m3q_icon_background">#1A1A1A</color>
 </resources>

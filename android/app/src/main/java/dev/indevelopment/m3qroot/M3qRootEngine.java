@@ -41,26 +41,26 @@ final class M3qRootEngine {
         }
     }
 
-    private static final String MODEL = "SM-S948N";
+    private static final String MODEL = "SM-S931B";
     private static final String KERNEL =
-            "6.12.30-android16-5-pd30ff70-abogkiS948NKSS4AZG3-4k";
+            "6.6.127-android15-8-paa4b906-abogkiS931BXXUCZZHL-4k";
     private static final String FINGERPRINT =
-            "samsung/m3qksx/m3q:16/BP4A.251205.006/" +
-                    "S948NKSS4AZG3_OKR4AZG3:user/release-keys";
+            "samsung/pa1qxeea/pa1q:17/CP2A.260605.016/" +
+                    "S931BXXUCZZHL_OXMCZZHL:user/release-keys";
     private static final long KIMAGE_BASE = 0xffffffc080000000L;
     private static final String HELPER = "libm3qroot.so";
     private static final String ORACLE = "libm3qoracle.so";
     private static final String PAYLOAD = "libm3qpayload.so";
     private static final String KSUD = "libm3qksud.so";
     private static final String KSU_LOADER_PATH =
-            "/data/local/tmp/ksud-m3q-S948NKSS4AZG3-kdp";
+            "/data/local/tmp/ksud-s25u-kdp";
     private static final String KSU_STAGE_PATH = "/data/local/tmp/.ksud-stage";
     private static final String KSU_LOG_PATH =
-            "/data/local/tmp/m3q-kernelsu-late-load.log";
+            "/data/local/tmp/pa1q-kernelsu-late-load.log";
     private static final String KSU_MANAGER_PACKAGE = "me.weishu.kernelsu";
     private static final String MODULE_RELOAD_HOOK_DIR = "/data/adb/boot-completed.d";
     private static final String KSUD_SHA256 =
-            "3ce5753203c93f4d733fbc10eebd7a69152189afb1d2a15bfd855bd6b5d4f622";
+            "fa3edcc7d168637394877b30cb1f909d762dda788ec14051f4ae79edd6562d63";
     private static final String SAFETY_PREFS = "kernel_run_safety";
     private static final String ATTEMPT_BOOT_ID = "attempt_boot_id";
     private static final String VERIFIED_KSU_BOOT_ID = "verified_ksu_boot_id";
@@ -120,7 +120,7 @@ final class M3qRootEngine {
                     authoritativeProbe = true;
                     ksuCode = runProcess(process, 8, ksuLines, verbose);
                 } catch (RuntimeException e) {
-                    if (verbose) log("Shizuku KernelSU 확인 오류: " + e.getMessage());
+                    if (verbose) log("Shizuku KernelSU check error: " + e.getMessage());
                     if (e instanceof ShizukuShell.ProcessControlLostException) {
                         return new RootState(false, false, true, e.getMessage());
                     }
@@ -163,12 +163,10 @@ final class M3qRootEngine {
 
     int runFreshRoot(boolean useShizuku) {
         File helper = nativeFile(HELPER);
-        File oracle = nativeFile(ORACLE);
-        File payload = nativeFile(PAYLOAD);
+        File payload = activePayload();
         File ksud = nativeFile(KSUD);
-        if (!helper.isFile() || !payload.isFile() || !ksud.isFile()
-                || (!useShizuku && !oracle.isFile())) {
-            log("필요한 네이티브 파일을 APK에서 찾지 못했습니다.");
+        if (!helper.isFile() || !payload.isFile() || !ksud.isFile()) {
+            log("Required native files not found in APK.");
             return 126;
         }
 
@@ -177,45 +175,17 @@ final class M3qRootEngine {
             return rootCode == 0 ? activateKernelSu(helper, ksud) : rootCode;
         }
 
-        status("기기 보안 상태 확인 중", STATUS_WORKING);
-        log("1/2: 정확한 Image fingerprint로 물리 P0 slide 확인");
-        List<String> oracleLines = new ArrayList<>();
-        ProcessBuilder oracleProcess = payloadProcess(helper, oracle);
-        Map<String, String> oracleEnv = oracleProcess.environment();
-        oracleEnv.put("SLIDE_ONLY", "1");
-        oracleEnv.put("P0_ONLY", "1");
-        oracleEnv.put("EXPLOIT_ATTEMPTS", "1");
-        oracleEnv.put("P0_MIN_BOOT_UPTIME_SEC", "30");
-        oracleEnv.put("P0_ATTEMPT_TIMEOUT_SEC", "90");
-        oracleEnv.put("EXPLOIT_ATTEMPT_TIMEOUT_SEC", "120");
-        int oracleCode = runProcess(oracleProcess, 150, oracleLines, true);
-        if (oracleCode != 0) {
-            log("P0 oracle 실패: write 상태가 불명확하면 재부팅 후 다시 시도하세요.");
-            return oracleCode;
-        }
-
-        SlideVerdict verdict = parseOracleVerdict(oracleLines);
-        if (verdict == null) {
-            log("P0 oracle 출력의 유일하고 일관된 slide verdict를 확인하지 못했습니다.");
-            return 125;
-        }
-        if (verdict.keeperPid() > 0) {
-            android.os.Process.killProcess(verdict.keeperPid());
-            log("복원 완료 후 P0 reference keeper 종료 pid=" + verdict.keeperPid());
-        }
-        log("P0 slide 확정: " + verdict.argument());
-
-        status("임시 루트 활성화 중", STATUS_WORKING);
-        log("2/2: 검증된 slide로 AZG3 root-single 실행");
+        status("Checking device security state", STATUS_WORKING);
+        log("1/1: running root-single through the kernel gate");
         ProcessBuilder rootProcess = payloadProcess(helper, payload);
         Map<String, String> env = rootProcess.environment();
-        configureRootEnvironment(env, false, verdict.argument());
+        configureRootEnvironment(env, false, null);
         List<String> rootLines = new ArrayList<>();
         int rootCode = runProcess(rootProcess, 600, rootLines, true);
         if (rootCode != EXIT_TERMINATION_UNCONFIRMED) {
             saveRootLog(rootLines, rootCode);
         } else {
-            log("프로세스 종료를 확인하지 못해 root 로그 확정을 생략합니다.");
+            log("Process exit not confirmed; skipping root log finalization.");
         }
         return rootCode == 0 ? activateKernelSu(helper, ksud) : rootCode;
     }
@@ -227,7 +197,7 @@ final class M3qRootEngine {
     int reapplyKernelSuModules() {
         File ksud = nativeFile(KSUD);
         if (!ksud.isFile()) {
-            log("KernelSU 실행 파일을 APK에서 찾지 못했습니다.");
+            log("KernelSU binary not found in APK.");
             return 126;
         }
 
@@ -259,7 +229,7 @@ final class M3qRootEngine {
                 + "exit 0\n"
                 + "M3Q_MODULE_RELOAD_HOOK\n"
                 + "chmod 0755 \"$hook\"\n"
-                + "\"$ksud\" late-load --kmi android16-6.12 --package-name "
+                + "\"$ksud\" late-load --kmi android15-6.6 --allow-shell --package-name "
                 + KSU_MANAGER_PACKAGE + "\n"
                 + "i=0\n"
                 + "while [ \"$i\" -lt 120 ]; do\n"
@@ -273,25 +243,25 @@ final class M3qRootEngine {
                 + "echo M3Q_MODULE_RELOAD_TIMEOUT\n"
                 + "exit 124\n";
 
-        status("KernelSU 모듈 재로드 중", STATUS_WORKING);
+        status("Reloading KernelSU module", STATUS_WORKING);
         List<String> output = new ArrayList<>();
         int code = runKernelSuRootCommand(ksud, command, 150, output);
         if (code != 0) {
-            log("KernelSU 모듈 재적용 실패 code=" + code);
+            log("KernelSU module reapply failed code=" + code);
             return code;
         }
         if (!String.join("\n", output).contains("M3Q_MODULE_RELOAD_OK:" + token)) {
-            log("KernelSU boot-completed 단계의 완료 표식을 확인하지 못했습니다.");
+            log("KernelSU boot-completed completion marker not confirmed.");
             return 125;
         }
-        log("KernelSU 모듈 late-load 재적용 완료");
+        log("KernelSU module late-load reapplied");
         return 0;
     }
 
     int restartZygote() {
         File ksud = nativeFile(KSUD);
         if (!ksud.isFile()) {
-            log("KernelSU 실행 파일을 APK에서 찾지 못했습니다.");
+            log("KernelSU binary not found in APK.");
             return 126;
         }
         String command = kernelSuRootPreamble(ksud)
@@ -351,11 +321,11 @@ final class M3qRootEngine {
     private int runShizukuTracefsRoot(File helper, File payload) {
         int uid = ShizukuShell.uid();
         if (uid != 2000 && uid != 0) {
-            log("Shizuku가 shell/root UID가 아니므로 실행을 거부합니다.");
+            log("Shizuku is not running as shell/root UID; refusing to run.");
             return 126;
         }
-        status("Shizuku로 임시 루트 활성화 중", STATUS_WORKING);
-        log("1/1: shell tracefs KASLR gate로 AZG3 root-single 실행");
+        status("Activating temporary root via Shizuku", STATUS_WORKING);
+        log("1/1: running root-single via the shell tracefs KASLR gate");
         Map<String, String> env = new HashMap<>();
         env.put("HOME", "/data/local/tmp");
         env.put("TMPDIR", "/data/local/tmp");
@@ -368,7 +338,8 @@ final class M3qRootEngine {
         }
         String[] command = {
                 helper.getAbsolutePath(), "--run-payload",
-                payload.getAbsolutePath(), helper.getAbsolutePath()
+                payload.getAbsolutePath(), helper.getAbsolutePath(),
+                "/data/local/tmp/payload_run.log"
         };
         try {
             Process process = ShizukuShell.exec(command, environment, "/data/local/tmp");
@@ -377,11 +348,11 @@ final class M3qRootEngine {
             if (rootCode != EXIT_TERMINATION_UNCONFIRMED) {
                 saveRootLog(rootLines, rootCode);
             } else {
-                log("프로세스 종료를 확인하지 못해 root 로그 확정을 생략합니다.");
+                log("Process exit not confirmed; skipping root log finalization.");
             }
             return rootCode;
         } catch (RuntimeException e) {
-            log("Shizuku 실행 오류: " + e.getMessage());
+            log("Shizuku run error: " + e.getMessage());
             return e instanceof ShizukuShell.ProcessControlLostException
                     ? EXIT_TERMINATION_UNCONFIRMED : 127;
         }
@@ -389,61 +360,20 @@ final class M3qRootEngine {
 
     private void configureRootEnvironment(Map<String, String> env,
                                           boolean tracefs, String slide) {
-        env.put("M3Q_STAGE", "root-single");
-        env.put("M3Q_APP_UID", Integer.toString(android.os.Process.myUid()));
-        env.put("M3Q_ENABLE_WRITE", "1");
-        env.put("M3Q_REQUIRE_TRACEFS", tracefs ? "1" : "0");
-        env.put("M3Q_REQUIRE_APP_P0", tracefs ? "0" : "1");
-        if (!tracefs) {
-            env.put("M3Q_APP_P0_SOURCE", "physical");
-            env.put("M3Q_APP_P0_VERDICT", "exact-fingerprint-32x8");
-            env.put("SLIDE_P0_OFFSET", slide);
-        }
-        env.put("M3Q_POPSICLE_WALK", "1");
-        env.put("M3Q_ATTR_CARRIER", "1");
-        env.put("M3Q_ATTR_ROOT", "1");
-        env.put("M3Q_ACCEPT_PANIC_RISK", "1");
-        env.put("TMP_PAGE_UNAME", "1");
-        env.put("TMP_UNAME_PIPEI_SWEEP", "1");
-        env.put("TMP_UNAME_PIPEI_SLOT_CANDIDATES", "1");
-        env.put("TMP_UNAME_PIPEI_MAX_ATTEMPTS", "1");
-        env.put("GHOSTLOCK_CORE", "6");
-        env.put("GHOSTLOCK_CONSUMER_CORE", "7");
-        env.put("PSELECT_RECLAIM_CORE", "2");
-        env.put("PSELECT_RECLAIM_SINGLE_FRAG", "1");
-        env.put("PSELECT_RECLAIM_SENDS", "8");
-        env.put("PSELECT_RECLAIM_SINGLE_SYSCALL", "1");
-        env.put("PSELECT_PREPARE_SLABS", "8");
-        env.put("PSELECT_GRAB_HOLD", "0");
-        env.put("PSELECT_MM_KICK_SLABS", "0");
-        env.put("PSELECT_OWNER_NULL", "1");
-        env.put("PSELECT_REAL_WAITER_TASK", "1");
-        env.put("PSELECT_W0_PRIO_OVERRIDE", "100");
-        env.put("PSELECT_ROUTE_TIMERFD", "0");
-        env.put("PSELECT_ROUTE_TIMEOUT_SEC", "1");
-        env.put("PSELECT_ROUTE_WAIT_SECONDS", "1");
-        env.put("M3Q_SKB_METADATA_RESERVE", "0");
-        env.put("M3Q_DMAHEAP_SWEEP", "0");
-        env.put("M3Q_DRAIN_CHILDREN", "0");
-        env.put("PIPEI_DRAIN_TARGET_MB", "0");
-        env.put("PIPEI_PIN_ENABLE", "0");
-        env.put("PIPEI_PIN_CHILD", "0");
-        env.put("PIPEI_ORACLE_WALK", "1");
-        env.put("PIPEI_ORACLE_REGION", "3");
-        env.put("PIPEI_ORACLE_INLINE", "0");
-        env.put("PIPEI_CHILD_REGIONS", "5");
-        env.put("PIPEI_SWEEP_INLINE", "0");
-        env.put("M3Q_WORKSPACE_ATTEMPTS", "3");
-        env.put("M3Q_PROBE_STRICT", "1");
+        env.put("SLIDE_SOURCE", tracefs ? "tracefs" : "auto");
+        env.put("CVE43499_ROOT_HELPER",
+                nativeFile(HELPER).getAbsolutePath());
+        env.put("EXPLOIT_ATTEMPT_TIMEOUT_SEC", "600");
+        env.put("P0_ATTEMPT_TIMEOUT_SEC", "90");
     }
 
     private int activateKernelSu(File helper, File ksud) {
         if (!helper.isFile() || !ksud.isFile()) {
-            log("KernelSU loader를 APK에서 찾지 못했습니다.");
+            log("KernelSU loader not found in APK.");
             return 126;
         }
 
-        status("KernelSU 구성 확인 중", STATUS_WORKING);
+        status("Verifying KernelSU configuration", STATUS_WORKING);
         String source = shellQuote(ksud.getAbsolutePath());
         String loader = shellQuote(KSU_LOADER_PATH);
         String stage = shellQuote(KSU_STAGE_PATH);
@@ -462,6 +392,7 @@ final class M3qRootEngine {
                 helper.getAbsolutePath(), "-c", command);
         stageProcess.redirectErrorStream(true);
         int stageCode = runProcess(stageProcess, 30, stageLines, true);
+        appendRootLogSection("KernelSU staging", stageLines, stageCode);
         if (Thread.currentThread().isInterrupted()) return stageCode;
         if (stageCode == EXIT_TERMINATION_UNCONFIRMED
                 || stageCode == 124 || stageCode == 130) {
@@ -470,23 +401,25 @@ final class M3qRootEngine {
         String stageOutput = String.join("\n", stageLines);
         String expectedMarker = "KSU_STAGE_OK:" + KSUD_SHA256;
         if (stageCode != 0 || !stageOutput.contains(expectedMarker)) {
-            log("KernelSU staging 검증 실패");
+            log("KernelSU staging verification failed");
             return 125;
         }
 
-        log("KernelSU loader SHA-256 일치");
-        status("KernelSU 활성화 중", STATUS_WORKING);
+        log("KernelSU loader SHA-256 match");
+        status("Activating KernelSU", STATUS_WORKING);
         ProcessBuilder loadProcess = new ProcessBuilder(
                 helper.getAbsolutePath(), "--late-load");
         loadProcess.redirectErrorStream(true);
-        int loadCode = runProcess(loadProcess, 180);
+        java.util.List<String> loadLines = new ArrayList<>();
+        int loadCode = runProcess(loadProcess, 180, loadLines, true);
+        appendRootLogSection("KernelSU late-load", loadLines, loadCode);
         if (Thread.currentThread().isInterrupted()) return loadCode;
         if (loadCode == EXIT_TERMINATION_UNCONFIRMED
                 || loadCode == 124 || loadCode == 130) {
             return EXIT_TERMINATION_UNCONFIRMED;
         }
         if (loadCode != 0) {
-            log("KernelSU late-load 실패 code=" + loadCode);
+            log("KernelSU late-load failed code=" + loadCode);
             appendKernelSuLog(helper);
             return loadCode;
         }
@@ -494,7 +427,7 @@ final class M3qRootEngine {
         /* The daemon verifies KernelSU in a seccomp-free context. A direct
          * untrusted_app discovery syscall is killed by Samsung seccomp. */
         if (!markKernelSuVerifiedForThisBoot()) {
-            log("KernelSU는 로드됐지만 이 boot ID의 검증 영수증을 저장하지 못했습니다.");
+            log("KernelSU loaded, but failed to store the verification receipt for this boot ID.");
             return 123;
         }
 
@@ -503,10 +436,10 @@ final class M3qRootEngine {
             return EXIT_TERMINATION_UNCONFIRMED;
         }
         if (!state.ready()) {
-            log("late-load는 끝났지만 KernelSU control 검증이 실패했습니다.");
+            log("Late-load finished, but KernelSU control verification failed.");
             return 124;
         }
-        log("KernelSU 3.2.5 LKM late-load 검증 완료");
+        log("KernelSU 3.2.5 LKM late-load verified");
         return 0;
     }
 
@@ -561,15 +494,23 @@ final class M3qRootEngine {
             }
             return runProcess(process, timeoutSeconds, output, true);
         } catch (IOException e) {
-            log("KernelSU root shell 실행 오류: " + e.getMessage());
+            log("KernelSU root shell error: " + e.getMessage());
             return 127;
         }
+    }
+
+    int rebootDevice() {
+        List<String> output = new ArrayList<>();
+        int code = runKernelSuRootCommand(nativeFile(KSUD), "reboot", 30, output);
+        for (String line : output) log(line);
+        return code;
     }
 
     private ProcessBuilder payloadProcess(File helper, File payload) {
         ProcessBuilder process = new ProcessBuilder(
                 helper.getAbsolutePath(), "--run-payload",
-                payload.getAbsolutePath(), helper.getAbsolutePath());
+                payload.getAbsolutePath(), helper.getAbsolutePath(),
+                "/data/local/tmp/payload_run.log");
         process.directory(context.getFilesDir());
         process.redirectErrorStream(true);
         process.environment().put("HOME", context.getFilesDir().getAbsolutePath());
@@ -639,7 +580,7 @@ final class M3qRootEngine {
         try {
             return runProcess(process.start(), timeoutSeconds, capture, display);
         } catch (IOException e) {
-            if (display) log("실행 오류: " + e.getMessage());
+            if (display) log("Run error: " + e.getMessage());
             return 127;
         }
     }
@@ -671,7 +612,7 @@ final class M3qRootEngine {
             result = processEnded ? 130 : EXIT_TERMINATION_UNCONFIRMED;
         } catch (RuntimeException e) {
             processEnded = terminateAndWait(process, interrupted);
-            if (display) log("실행 오류: " + e.getMessage());
+            if (display) log("Run error: " + e.getMessage());
             result = processEnded ? 127 : EXIT_TERMINATION_UNCONFIRMED;
         } finally {
             closeQuietly(process.getOutputStream());
@@ -690,12 +631,12 @@ final class M3qRootEngine {
             closeQuietly(processStdout);
             closeQuietly(processStderr);
             if (display && (!stdoutDone || !stderrDone)) {
-                log("프로세스 출력 stream 종료를 확인하지 못했습니다.");
+                log("Could not confirm process output stream exit.");
             }
             if (interrupted[0]) Thread.currentThread().interrupt();
         }
         if (result == EXIT_TERMINATION_UNCONFIRMED && display) {
-            log("프로세스 그룹 종료를 확인하지 못했습니다. 이 boot에서 재시도하지 마세요.");
+            log("Could not confirm process group exit. Do not retry this boot.");
         }
         return result;
     }
@@ -793,10 +734,38 @@ final class M3qRootEngine {
                     writer.newLine();
                 }
             }
-            log("실행 로그 저장: " + output.getAbsolutePath());
+            log("Saving run log: " + output.getAbsolutePath());
         } catch (IOException e) {
-            log("실행 로그 저장 실패: " + e.getMessage());
+            log("Failed to save run log: " + e.getMessage());
         }
+    }
+    private void appendRootLogSection(String title, java.util.List<String> lines, int exitCode) {
+        File output = lastRootLog();
+        try (BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(
+                new FileOutputStream(output, true), StandardCharsets.UTF_8))) {
+            writer.write("==== " + title + " exit=" + exitCode + " ====");
+            writer.newLine();
+            synchronized (lines) {
+                for (String line : lines) {
+                    writer.write(line);
+                    writer.newLine();
+                }
+            }
+        } catch (IOException e) {
+            log("Failed to append run log: " + e.getMessage());
+        }
+    }
+
+    private volatile File payloadOverride;
+
+    void setPayloadOverride(File file) {
+        payloadOverride = file;
+    }
+
+    private File activePayload() {
+        File override = payloadOverride;
+        if (override != null && override.isFile()) return override;
+        return nativeFile(PAYLOAD);
     }
 
     private File nativeFile(String name) {

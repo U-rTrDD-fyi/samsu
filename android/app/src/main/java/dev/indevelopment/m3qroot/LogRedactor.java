@@ -10,7 +10,7 @@ final class LogRedactor {
     }
 
     static String redact(String text) {
-        return "[공유용 정제 로그: 원본 last-root.log는 앱 내부에 유지]\n"
+        return "[Sanitized log for sharing: original last-root.log stays inside the app]\n"
                 + text
                 .replaceAll("(?i)(boot[_ -]?id\\s*[:=]\\s*)[0-9a-f-]{32,36}",
                         "$1<redacted-boot-id>")
