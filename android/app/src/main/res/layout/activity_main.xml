@@ -198,6 +198,16 @@
             android:textColor="#66FFFFFF"
             android:textSize="14sp" />
 
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/select_payload"
+            style="@style/Widget.Material3.Button.OutlinedButton"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:layout_marginTop="12dp"
+            android:text="@string/select_payload"
+            android:textColor="#66FFFFFF"
+            android:textSize="14sp" />
+
         <com.google.android.material.card.MaterialCardView
             android:id="@+id/diagnostics_card"
             android:layout_width="match_parent"

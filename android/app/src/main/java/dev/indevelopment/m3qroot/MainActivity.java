@@ -2,6 +2,7 @@ package dev.indevelopment.m3qroot;
 
 import android.content.Intent;
 import android.content.pm.PackageInfo;
+ import android.content.SharedPreferences;
  import android.content.pm.PackageManager;
 import android.graphics.Insets;
 import android.os.Build;
@@ -21,6 +22,7 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.card.MaterialCardView;
+ import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 import java.io.File;
 import java.io.IOException;
@@ -28,7 +30,8 @@ import java.io.RandomAccessFile;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.List;
+import java.util.ArrayList;
+ import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -79,6 +82,7 @@ public final class MainActivity extends AppCompatActivity {
     private boolean runIsReboot;
     private volatile String activePayloadId = PayloadStore.BUNDLED_PAYLOAD_ID;
     private volatile boolean payloadResolved;
+    private volatile java.util.List<PayloadStore.Profile> lastRegistry;
 
     @Override
     protected void onCreate(Bundle state) {
@@ -184,6 +188,7 @@ public final class MainActivity extends AppCompatActivity {
         statusRefresh.setOnClickListener(v -> worker.execute(this::refreshRootState));
         diagnosticsToggle.setOnClickListener(v -> toggleDiagnostics());
         findViewById(R.id.export_log).setOnClickListener(v -> exportLastLog());
+        findViewById(R.id.select_payload).setOnClickListener(v -> showPayloadDialog());
     }
 
     @Override
@@ -205,49 +210,134 @@ public final class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void resolvePayload() {
-        if (payloadResolved) return;
-        payloadResolved = true;
-        List<PayloadStore.Profile> registry;
-        try {
-            registry = PayloadStore.fetchRegistry();
-        } catch (Exception error) {
-            append("Payload registry unavailable: " + error.getMessage());
-            append("Using bundled payload " + PayloadStore.BUNDLED_PAYLOAD_ID + ".");
-            activePayloadId = PayloadStore.BUNDLED_PAYLOAD_ID;
-            return;
-        }
-        PayloadStore.Profile match = PayloadStore.matchRemote(registry);
-        if (match == null) {
-            payloadResolved = true;
-            append("No remote payload matches this device; using bundled "
-                    + PayloadStore.BUNDLED_PAYLOAD_ID + ".");
-            activePayloadId = PayloadStore.BUNDLED_PAYLOAD_ID;
-            return;
-        }
-        if (match.payloadId.equals(activePayloadId)
-                && PayloadStore.cachedPayload(this, match.payloadId).isFile()
-                && engine != null) {
-            engine.setPayloadOverride(PayloadStore.cachedPayload(this, match.payloadId));
-            payloadResolved = true;
-            append("Using cached payload " + match.payloadId + ".");
-            return;
-        }
-        append("Downloading payload " + match.payloadId + " ...");
-        try {
-            File file = PayloadStore.downloadExploit(this, match);
-            activePayloadId = match.payloadId;
-            engine.setPayloadOverride(file);
-            payloadResolved = true;
-            append("Payload downloaded: " + file.getName()
-                    + " (" + file.length() + " bytes)");
-        } catch (Exception error) {
-            append("Payload download failed: " + error.getMessage());
-            append("Using bundled payload " + PayloadStore.BUNDLED_PAYLOAD_ID + ".");
-            activePayloadId = PayloadStore.BUNDLED_PAYLOAD_ID;
-        }
-    }
-
+    private void resolvePayload() {
+        if (payloadResolved) return;
+        payloadResolved = true;
+        SharedPreferences prefs = getSharedPreferences("samsu_payload", MODE_PRIVATE);
+        String manualId = prefs.getString("manual_payload_id", "");
+        List<PayloadStore.Profile> registry;
+        try {
+            registry = PayloadStore.fetchRegistry();
+            lastRegistry = registry;
+        } catch (Exception error) {
+            append("Payload registry unavailable: " + error.getMessage());
+            useBundledPayload(manualId);
+            return;
+        }
+
+        PayloadStore.Profile match = null;
+        boolean kernelMismatch = false;
+        if (!manualId.isEmpty()) {
+            match = PayloadStore.findById(registry, manualId);
+            if (match == null && manualId.equals(PayloadStore.BUNDLED_PAYLOAD_ID)) {
+                append("Using bundled payload (manual selection).");
+                activePayloadId = PayloadStore.BUNDLED_PAYLOAD_ID;
+                engine.setPayloadOverride(null);
+                return;
+            }
+            if (match != null) {
+                kernelMismatch = !PayloadStore.kernelMatches(match);
+                if (kernelMismatch) {
+                    append("WARNING: manually selected payload " + match.payloadId
+                            + " targets a different kernel; trying anyway.");
+                }
+            }
+        }
+        if (match == null) {
+            match = PayloadStore.matchRemote(registry);
+        }
+        if (match == null) {
+            append("No remote payload matches this device; using bundled "
+                    + PayloadStore.BUNDLED_PAYLOAD_ID + ".");
+            activePayloadId = PayloadStore.BUNDLED_PAYLOAD_ID;
+            return;
+        }
+        if (kernelMismatch) {
+            append("WARNING: kernel version differs from the payload target; "
+                    + "attempting anyway.");
+        }
+        File cached = PayloadStore.cachedPayload(this, match.payloadId);
+        if (cached.isFile()) {
+            activePayloadId = match.payloadId;
+            engine.setPayloadOverride(cached);
+            append("Using cached payload " + match.payloadId + ".");
+            return;
+        }
+        append("Downloading payload " + match.payloadId + " ...");
+        try {
+            File file = PayloadStore.downloadExploit(this, match);
+            activePayloadId = match.payloadId;
+            engine.setPayloadOverride(file);
+            append("Payload downloaded: " + file.getName()
+                    + " (" + file.length() + " bytes)");
+        } catch (Exception error) {
+            append("Payload download failed: " + error.getMessage());
+            append("Using bundled payload " + PayloadStore.BUNDLED_PAYLOAD_ID + ".");
+            activePayloadId = PayloadStore.BUNDLED_PAYLOAD_ID;
+        }
+    }
+
+    private void useBundledPayload(String manualId) {
+        File cached = manualId.isEmpty()
+                ? null : PayloadStore.cachedPayload(this, manualId);
+        if (cached != null && cached.isFile()
+                && !manualId.equals(PayloadStore.BUNDLED_PAYLOAD_ID)) {
+            activePayloadId = manualId;
+            engine.setPayloadOverride(cached);
+            append("Using cached payload " + manualId + ".");
+            return;
+        }
+        append("Using bundled payload " + PayloadStore.BUNDLED_PAYLOAD_ID + ".");
+        activePayloadId = PayloadStore.BUNDLED_PAYLOAD_ID;
+    }
+    private void showPayloadDialog() {
+        List<PayloadStore.Profile> registry = lastRegistry;
+        if (registry == null) {
+            append("Fetching payload registry for selection ...");
+            worker.execute(() -> {
+                try {
+                    lastRegistry = PayloadStore.fetchRegistry();
+                } catch (Exception error) {
+                    append("Payload registry unavailable: " + error.getMessage());
+                    return;
+                }
+                ui.post(this::showPayloadDialog);
+            });
+            return;
+        }
+        SharedPreferences prefs = getSharedPreferences("samsu_payload", MODE_PRIVATE);
+        String manualId = prefs.getString("manual_payload_id", "");
+        List<String> ids = new ArrayList<>();
+        List<String> labels = new ArrayList<>();
+        ids.add(PayloadStore.BUNDLED_PAYLOAD_ID);
+        labels.add("Bundled: " + PayloadStore.BUNDLED_PAYLOAD_ID);
+        for (PayloadStore.Profile profile : registry) {
+            ids.add(profile.payloadId);
+            labels.add(profile.payloadId
+                    + (profile.displayName.isEmpty() ? "" : " - " + profile.displayName)
+                    + (PayloadStore.kernelMatches(profile) ? "" : " (kernel mismatch)"));
+        }
+        int checked = ids.indexOf(manualId.isEmpty() ? activePayloadId : manualId);
+        if (checked < 0) checked = 0;
+        new MaterialAlertDialogBuilder(this)
+                .setTitle("Select payload")
+                .setSingleChoiceItems(labels.toArray(new CharSequence[0]), checked,
+                        (dialog, which) -> {
+                            dialog.dismiss();
+                            String id = ids.get(which);
+                            prefs.edit().putString("manual_payload_id",
+                                    PayloadStore.BUNDLED_PAYLOAD_ID.equals(id)
+                                            ? "" : id).apply();
+                            payloadResolved = false;
+                            append("Payload selection: " + id);
+                            worker.execute(() -> {
+                                resolvePayload();
+                                refreshRootState();
+                            });
+                        })
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
+    }
     private void toggleDiagnostics() {
         diagnosticsVisible = !diagnosticsVisible;
         diagnosticsCard.setVisibility(diagnosticsVisible ? View.VISIBLE : View.GONE);

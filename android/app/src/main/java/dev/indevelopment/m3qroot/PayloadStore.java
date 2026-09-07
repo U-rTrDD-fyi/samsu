@@ -99,13 +99,30 @@ final class PayloadStore {
     /** Remote profile matching this exact model and kernel, or null. */
     static Profile matchRemote(List<Profile> profiles) {
         String model = deviceModel();
-        String kernel = deviceKernel();
         for (Profile profile : profiles) {
-            if (!profile.models.contains(model)) continue;
-            for (String version : profile.kernelVersions) {
-                if (!version.isEmpty() && kernel.startsWith(version)) {
-                    return profile;
-                }
+            if (profile.models.contains(model) && kernelMatches(profile)) {
+                return profile;
+            }
+        }
+        return null;
+    }
+
+    /** Kernel-version tolerance check against the running kernel. */
+    static boolean kernelMatches(Profile profile) {
+        String kernel = deviceKernel();
+        for (String version : profile.kernelVersions) {
+            if (!version.isEmpty() && kernel.startsWith(version)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Find a registry profile by payloadId, or null. */
+    static Profile findById(List<Profile> profiles, String payloadId) {
+        for (Profile profile : profiles) {
+            if (profile.payloadId.equals(payloadId)) {
+                return profile;
             }
         }
         return null;
