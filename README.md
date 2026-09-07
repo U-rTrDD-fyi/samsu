@@ -41,6 +41,13 @@ The tracefs versus physical-P0 slide route is selected at runtime per run (Shizu
 
 KernelSU Manager **3.2.5** must be installed (newer managers are flagged in the status card).
 
+## Tested devices
+
+| Status | Devices |
+| --- | --- |
+| Hardware PASS | Galaxy S25 `SM-S931B` on firmware `BP4A.251205.006` / `S931BXXUCZZHL`, kernel `6.6.127-android15-8-paa4b906` |
+| Hardware PASS | Galaxy S25 Ultra `SM-S938B` on firmware `BP4A.251205.006` / `S938BXXSCCZH1`, kernel `6.6.98-android15-8-p5a696e2` |
+
 ## Install and use
 
 1. Install the APK and KernelSU Manager **3.2.5** (`me.weishu.kernelsu`).
@@ -49,7 +56,7 @@ KernelSU Manager **3.2.5** must be installed (newer managers are flagged in the 
 4. Hold root button. Do not retry an uncertain kernel run in the same boot.
 5. If modules or LSPosed are inactive, hold **Hold to reload KernelSU**, then **Hold to soft reboot**.
 <p align="center" width="50%">
-<video src="https://github.com/user-attachments/assets/131949a5-239e-42be-8542-176fbfcda6a9" width="20%" controls></video>
+<video src="https://github.com/user-attachments/assets/7cffec29-d169-48fd-965f-0f99d8b3ab92" width="20%" controls></video>
 </p>
 
 ## Root process
