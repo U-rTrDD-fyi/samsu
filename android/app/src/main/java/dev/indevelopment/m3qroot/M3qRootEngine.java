@@ -455,16 +455,16 @@ final class M3qRootEngine {
     /**
      * Fresh setups can have KernelSU reject the first root request after the
      * driver late-loads (no manager prompt is involved). Give the driver up
-     * to 30 seconds to start accepting requests, then retry staging. The
+     * to 2 seconds to start accepting requests, then retry staging. The
      * loaded driver stays up until reboot, so staging can still complete
      * on the same boot.
      */
     private int waitAndRetryAfterGrant(File helper, File ksud) {
-        status("KernelSU approval needed, waiting 30 seconds", 0xff9a6700);
-        log("KernelSU rejected the first root request; waiting up to 30 seconds "
+        status("KernelSU approval needed, waiting 2 seconds", 0xff9a6700);
+        log("KernelSU rejected the first root request; waiting 2 seconds "
                 + "for the freshly loaded driver to accept it ...");
         log("No manager prompt is shown - the wait itself usually resolves this.");
-        for (int waited = 0; waited < 30; waited += 2) {
+        for (int waited = 0; waited < 2; waited += 2) {
             try {
                 Thread.sleep(2000);
             } catch (InterruptedException ignored) {
@@ -484,7 +484,7 @@ final class M3qRootEngine {
             }
         }
         status("KernelSU root denied - reboot and run again", 0xffffb4ab);
-        log("KernelSU did not accept the root request within 30 seconds. "
+        log("KernelSU did not accept the root request within 2 seconds. "
                 + "Reboot and run again.");
         return 125;
     }
