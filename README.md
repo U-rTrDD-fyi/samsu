@@ -42,6 +42,7 @@ KernelSU Manager **3.2.5** must be installed (newer managers are flagged in the 
 <p align="center" width="50%">
 <video src="https://github.com/user-attachments/assets/131949a5-239e-42be-8542-176fbfcda6a9" width="20%" controls></video>
 </p>
+
 ## Root process
 
 The app uses a fail-closed, per-boot flow:
