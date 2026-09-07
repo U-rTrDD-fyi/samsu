@@ -319,7 +319,14 @@ public final class MainActivity extends AppCompatActivity {
 
     private CharSequence buildPayloadButtonLabel() {
         String prefix = "Payload selected : ";
-        SpannableString label = new SpannableString(prefix + activePayloadId);
+        String value = activePayloadId;
+
+        if (!deviceSupported()) {
+            prefix = "Payload : ";
+            value = "none for this device";
+        }
+
+        SpannableString label = new SpannableString(prefix + value);
         label.setSpan(new android.text.style.AbsoluteSizeSpan(12, true), 0,
                 prefix.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
         label.setSpan(new android.text.style.AbsoluteSizeSpan(10, true),
@@ -757,7 +764,7 @@ public final class MainActivity extends AppCompatActivity {
             setStatus("Temporary root inactive", STATUS_NEUTRAL);
             setStatusDetail(deviceSupported()
                     ? "Device verified - Wait 180s after boot"
-                    : "Device not supported");
+                    : "Wait 180s after boot");
             run.setText(R.string.root_activate);
             run.setEnabled(deviceSupported());
         }
