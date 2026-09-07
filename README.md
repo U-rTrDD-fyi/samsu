@@ -39,6 +39,7 @@ KernelSU Manager **3.2.5** must be installed (newer managers are flagged in the 
 3. Reboot once before the first run, then wait until kernel uptime reaches 180 seconds.
 4. Hold root button. Do not retry an uncertain kernel run in the same boot.
 5. If modules or LSPosed are inactive, hold **Hold to reload KernelSU**, then **Hold to soft reboot**.
+https://github.com/user-attachments/assets/131949a5-239e-42be-8542-176fbfcda6a9
 
 ## Root process
 
@@ -58,6 +59,10 @@ See [Root process](docs/ROOT_PROCESS.md) and [Technical reference](docs/REFERENC
 Requirements: JDK 17, Android SDK 37, and Android NDK.
 
 Windows:
+
+
+
+
 
 ```powershell
 # payload (from a Root-My-Galaxy-Payloads checkout containing targets/pa1q-S931BXXUCZZHL)
