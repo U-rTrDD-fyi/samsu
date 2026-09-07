@@ -58,6 +58,7 @@ final class M3qRootEngine {
     private static final String KSU_LOG_PATH =
             "/data/local/tmp/pa1q-kernelsu-late-load.log";
     private static final String KSU_MANAGER_PACKAGE = "me.weishu.kernelsu";
+    private static final String STAGED_PAYLOAD = "/data/local/tmp/samsu-payload.so";
     private static final String MODULE_RELOAD_HOOK_DIR = "/data/adb/boot-completed.d";
     private static final String KSUD_SHA256 =
             "fa3edcc7d168637394877b30cb1f909d762dda788ec14051f4ae79edd6562d63";
@@ -171,6 +172,7 @@ final class M3qRootEngine {
         }
 
         if (useShizuku) {
+            payload = stagePayloadForShell(payload);
             int rootCode = runShizukuTracefsRoot(helper, payload);
             return rootCode == 0 ? activateKernelSu(helper, ksud) : rootCode;
         }
@@ -762,6 +764,48 @@ final class M3qRootEngine {
         payloadOverride = file;
     }
 
+    /*
+     * Downloaded payloads live in this app's private filesDir, which the
+     * shell-uid helper (run through Shizuku) cannot reach. Stage the bytes
+     * into /data/local/tmp via the Shizuku shell so the helper can dlopen
+     * them, mirroring the documented RMG deployment layout.
+     */
+    private File stagePayloadForShell(File payload) {
+        if (payload.getAbsolutePath().equals(
+                nativeFile(PAYLOAD).getAbsolutePath())) {
+            return payload;
+        }
+        if (!ShizukuShell.isRunning() || !ShizukuShell.isGranted()) {
+            log("Shizuku unavailable for payload staging; using the original path.");
+            return payload;
+        }
+        try {
+            Process process = ShizukuShell.exec(new String[]{
+                    "sh", "-c", "cat > " + STAGED_PAYLOAD
+                            + " && chmod 0644 " + STAGED_PAYLOAD},
+                    new String[]{
+                            "PATH=/system/bin:/system/xbin",
+                            "HOME=/data/local/tmp",
+                            "TMPDIR=/data/local/tmp"},
+                    "/data/local/tmp");
+            try (java.io.OutputStream out = process.getOutputStream()) {
+                java.nio.file.Files.copy(payload.toPath(), out);
+            }
+            int code = process.waitFor();
+            File staged = new File(STAGED_PAYLOAD);
+            if (code == 0 && staged.isFile()
+                    && staged.length() == payload.length()) {
+                log("Staged payload " + STAGED_PAYLOAD
+                        + " (" + staged.length() + " bytes).");
+                return staged;
+            }
+            log("Payload staging failed code=" + code
+                    + "; using the original path.");
+        } catch (Exception error) {
+            log("Payload staging failed: " + error.getMessage());
+        }
+        return payload;
+    }
     private File activePayload() {
         File override = payloadOverride;
         if (override != null && override.isFile()) return override;
