@@ -18,10 +18,19 @@ SamSU uses the Root My Galaxy Payloads registry format (`support/targets-v3.json
 
 1. On startup, refresh, and before a root run, the app fetches the registry once per session.
 2. `Build.MODEL` must appear in a profile's `models[]` **and** the running kernel must start with one of its `kernelVersions[]`.
-3. On a match, the profile's exploit binary is downloaded once (size-verified against the registry) into app storage and used for every run.
+3. On a match, the profile's exploit binary is downloaded once (size-verified against the registry), staged into `/data/local/tmp` for the shell-uid helper, and used for every run.
 4. With no match — or offline — the bundled `pa1q-S931BXXUCZZHL` payload is used, so the app stays fully offline-capable.
 
-The tracefs versus physical-P0 slide route is selected at runtime per run (Shizuku tracefs fast path first, physical fallback), so one binary per device profile covers both. The active payload id is shown in the status card.
+### Manual payload selection
+
+Tap the **Payload** button in the status card to override the automatic match:
+
+- The selector lists the bundled payload plus up to 2 registry profiles whose `models[]` contain your device (kernel-matching profiles are sorted first).
+- Profiles whose kernel differs from yours are labeled **(kernel mismatch)** but can still be selected — useful when a payload is known to work across firmware builds that share a kernel.
+- The choice is remembered across sessions and can be reset back to the bundled payload at any time.
+- If no registry profile matches your device, the button shows **"Payload : none for this device"**.
+
+The tracefs versus physical-P0 slide route is selected at runtime per run (Shizuku tracefs fast path first, physical fallback), so one binary per device profile covers both. The active payload id is shown on the payload button in the status card.
 
 ## Supported devices
 
