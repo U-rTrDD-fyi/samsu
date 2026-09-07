@@ -1,6 +1,6 @@
 # SamSU
 
-A hold-to-confirm KernelSU temporary-root launcher for Samsung Galaxy S25 devices, forked from [M3Q Root for Galaxy S26 Ultra](https://github.com/monovibe/s26u-m3q-temp-root) (monovibe) and retargeted to the Galaxy S25 (`SM-S931B`, kernel `6.6.127-android15-8`).
+A KernelSU tracefs injector with Root My Galaxy Payloads (RMG) support, forked from [M3Q Root for Galaxy S26 Ultra](https://github.com/monovibe/s26u-m3q-temp-root) (monovibe) and retargeted to the Galaxy S25 (`SM-S931B`, kernel `6.6.127-android15-8`).
 
 > **Exact-target kernel exploit.** Each payload only matches one firmware build. A failed kernel attempt can panic or reboot the device. One root run is allowed per boot; a reboot clears root and the attempt counter.
 
@@ -10,7 +10,7 @@ M3Q Root was a single-device launcher for the Korean Galaxy S26 Ultra (`SM-S948N
 
 - **Retargeted payload**: the CVE-2026-43499 route was re-derived for the Galaxy S25 (`pa1q-S931BXXUCZZHL`, kernel `6.6.127-android15-8-paa4b906`): new text offsets, self-validating derivations (boot-id `.data` slot, `nfnetlink_log` name check), and a bounded stack-writer retry budget.
 - **RMG payload compatibility**: the app matches this device against the [Root My Galaxy Payloads](https://github.com/BuSung-dev/Root-My-Galaxy-Payloads) `targets-v3.json` registry (model + kernel version), downloads the matching exploit binary, and falls back to the bundled payload when nothing matches or the device is offline.
-- **Hold-to-confirm actions**: every privileged action is a hold gesture (0.7 s for root, 1.4 s for the rest) — no confirmation dialogs.
+- **Press-and-hold actions**: every privileged action is a hold gesture (0.7 s for root, 1.4 s for the rest) — no confirmation dialogs.
 - **Honest failure states**: a failed attempt shows "Failed / Kernel panic prevented, reboot required" with an enabled **Hold to reboot** gesture, instead of a dead end.
 - **Root-first reboot**: unroot/reboot gestures use the KernelSU root shell and only fall back to Shizuku; reboot failures state the actual reason (no root, or Shizuku unavailable).
 - **KernelSU 3.2.5 gate**: the installed KernelSU Manager version is checked against the bundled `ksud` (3.2.5) and maintenance actions are locked on mismatch.
