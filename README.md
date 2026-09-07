@@ -4,22 +4,17 @@ A KernelSU tracefs injector with Root My Galaxy Payloads (RMG) support, forked f
 
 > **Exact-target kernel exploit.** Each payload only matches one firmware build. A failed kernel attempt can panic or reboot the device. One root run is allowed per boot; a reboot clears root and the attempt counter.
 
-## Differences from upstream M3Q Root
+## Upstream M3Q Root changes
 
 M3Q Root was a single-device launcher for the Korean Galaxy S26 Ultra (`SM-S948N`, kernel 6.12.30). SamSU keeps the fail-closed security architecture and changes everything around it:
 
 - **Retargeted payload**: the CVE-2026-43499 route was re-derived for the Galaxy S25 (`pa1q-S931BXXUCZZHL`, kernel `6.6.127-android15-8-paa4b906`): new text offsets, self-validating derivations (boot-id `.data` slot, `nfnetlink_log` name check), and a bounded stack-writer retry budget.
 - **RMG payload compatibility**: the app matches this device against the [Root My Galaxy Payloads](https://github.com/BuSung-dev/Root-My-Galaxy-Payloads) `targets-v3.json` registry (model + kernel version), downloads the matching exploit binary, and falls back to the bundled payload when nothing matches or the device is offline.
-- **Press-and-hold actions**: every privileged action is a hold gesture (0.7 s for root, 1.4 s for the rest) — no confirmation dialogs.
-- **Honest failure states**: a failed attempt shows "Failed / Kernel panic prevented, reboot required" with an enabled **Hold to reboot** gesture, instead of a dead end.
-- **Root-first reboot**: unroot/reboot gestures use the KernelSU root shell and only fall back to Shizuku; reboot failures state the actual reason (no root, or Shizuku unavailable).
 - **KernelSU 3.2.5 gate**: the installed KernelSU Manager version is checked against the bundled `ksud` (3.2.5) and maintenance actions are locked on mismatch.
-- **Activation logging**: KernelSU staging and late-load stages are appended to the exported report.
-- **AMOLED theme and dynamic device text** (model-derived marketing name), new app id `com.samsu`.
-
+  
 ## Payload system and RMG compatibility
 
-SamSU speaks the Root My Galaxy Payloads registry format (`support/targets-v3.json`):
+SamSU uses the Root My Galaxy Payloads registry format (`support/targets-v3.json`):
 
 1. On startup, refresh, and before a root run, the app fetches the registry once per session.
 2. `Build.MODEL` must appear in a profile's `models[]` **and** the running kernel must start with one of its `kernelVersions[]`.
@@ -37,23 +32,16 @@ The tracefs versus physical-P0 slide route is selected at runtime per run (Shizu
 
 KernelSU Manager **3.2.5** must be installed (newer managers are flagged in the status card).
 
-## App functions
-
-- **Hold to root** (0.7 s): obtains RAM-only root and activates the bundled KernelSU late-load component. Up to 4 stack-writer window attempts per run.
-- **Hold to reboot** (failure state): reboots the device to clear the spent boot — root shell first, Shizuku fallback.
-- **Hold to unroot** (rooted only): reboots the device, clearing root.
-- **Hold to reload KernelSU / Hold to soft reboot** (rooted only): re-runs module stages or restarts Zygote.
-- **Diagnostics**: in-app log and redacted export, including KernelSU staging and late-load stages.
-
-There is no automatic post-boot root. A real reboot removes the temporary root and KernelSU module.
-
 ## Install and use
 
 1. Install the APK and KernelSU Manager **3.2.5** (`me.weishu.kernelsu`).
 2. Start Shizuku through wireless ADB and approve this app once — the tracefs fast path makes runs far more reliable.
 3. Reboot once before the first run, then wait until kernel uptime reaches 180 seconds.
-4. Hold **Hold to root** (0.7 s). Do not retry an uncertain kernel run in the same boot.
+4. Hold root button. Do not retry an uncertain kernel run in the same boot.
 5. If modules or LSPosed are inactive, hold **Hold to reload KernelSU**, then **Hold to soft reboot**.
+<p align="center" width="50%">
+<video src="https://github.com/user-attachments/assets/131949a5-239e-42be-8542-176fbfcda6a9" width="20%" controls></video>
+</p>
 
 ## Root process
 
@@ -73,6 +61,10 @@ See [Root process](docs/ROOT_PROCESS.md) and [Technical reference](docs/REFERENC
 Requirements: JDK 17, Android SDK 37, and Android NDK.
 
 Windows:
+
+
+
+
 
 ```powershell
 # payload (from a Root-My-Galaxy-Payloads checkout containing targets/pa1q-S931BXXUCZZHL)
