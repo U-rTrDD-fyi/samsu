@@ -14,6 +14,9 @@
         <item name="colorOnSurface">@color/m3q_on_surface</item>
         <item name="colorOnSurfaceVariant">@color/m3q_on_surface_variant</item>
         <item name="colorOutline">@color/m3q_outline</item>
+        <item name="colorSurfaceContainer">#161616</item>
+        <item name="colorSurfaceContainerHigh">#1C1C1C</item>
+        <item name="colorSurfaceContainerHighest">#232323</item>
         <item name="colorOutlineVariant">@color/m3q_outline_variant</item>
         <item name="android:fontFamily">sans</item>
         <item name="android:windowBackground">@color/m3q_background</item>

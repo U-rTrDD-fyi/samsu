@@ -107,6 +107,16 @@ final class PayloadStore {
         return null;
     }
 
+    /** The bundled fallback profile (this APK's compiled payload). */
+    static Profile bundledProfile() {
+        List<String> models = new ArrayList<>();
+        models.add("SM-S931B");
+        List<String> kernels = new ArrayList<>();
+        kernels.add("6.6.127");
+        return new Profile(BUNDLED_PAYLOAD_ID,
+                "Galaxy S25 | Kernel 6.6.127 (bundled)", models, kernels, "", -1);
+    }
+
     /** Kernel-version tolerance check against the running kernel. */
     static boolean kernelMatches(Profile profile) {
         String kernel = deviceKernel();

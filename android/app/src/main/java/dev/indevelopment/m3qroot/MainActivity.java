@@ -2,21 +2,26 @@ package dev.indevelopment.m3qroot;
 
 import android.content.Intent;
 import android.content.pm.PackageInfo;
+ import android.graphics.Typeface;
  import android.content.SharedPreferences;
  import android.content.pm.PackageManager;
 import android.graphics.Insets;
 import android.os.Build;
+ import android.util.TypedValue;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
-import android.text.Html;
+   import android.text.Html;
+import android.text.SpannableString;
+import android.text.Spanned;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowInsets;
 import android.view.WindowManager;
 import android.window.OnBackInvokedDispatcher;
-import android.widget.TextView;
-import android.text.method.ScrollingMovementMethod;
+ import android.widget.LinearLayout;
+ import android.widget.TextView;
+ import android.text.method.ScrollingMovementMethod;
 
 import androidx.appcompat.app.AppCompatActivity;
 
@@ -70,6 +75,7 @@ public final class MainActivity extends AppCompatActivity {
     private TextView status;
     private TextView statusDetail;
     private TextView dashboard;
+    private MaterialButton payloadButton;
     private TextView subtitleText;
     private TextView log;
     private MaterialButton run;
@@ -136,6 +142,7 @@ public final class MainActivity extends AppCompatActivity {
         status = findViewById(R.id.status);
         statusDetail = findViewById(R.id.status_detail);
         dashboard = findViewById(R.id.dashboard);
+        payloadButton = findViewById(R.id.payload_button);
         subtitleText = findViewById(R.id.app_subtitle);
         subtitleText.setText(deviceMarketingLabel());
         log = findViewById(R.id.log);
@@ -188,7 +195,7 @@ public final class MainActivity extends AppCompatActivity {
         statusRefresh.setOnClickListener(v -> worker.execute(this::refreshRootState));
         diagnosticsToggle.setOnClickListener(v -> toggleDiagnostics());
         findViewById(R.id.export_log).setOnClickListener(v -> exportLastLog());
-        findViewById(R.id.select_payload).setOnClickListener(v -> showPayloadDialog());
+        payloadButton.setOnClickListener(v -> showPayloadDialog());
     }
 
     @Override
@@ -290,54 +297,103 @@ public final class MainActivity extends AppCompatActivity {
         append("Using bundled payload " + PayloadStore.BUNDLED_PAYLOAD_ID + ".");
         activePayloadId = PayloadStore.BUNDLED_PAYLOAD_ID;
     }
-    private void showPayloadDialog() {
-        List<PayloadStore.Profile> registry = lastRegistry;
-        if (registry == null) {
-            append("Fetching payload registry for selection ...");
-            worker.execute(() -> {
-                try {
-                    lastRegistry = PayloadStore.fetchRegistry();
-                } catch (Exception error) {
-                    append("Payload registry unavailable: " + error.getMessage());
-                    return;
-                }
-                ui.post(this::showPayloadDialog);
-            });
-            return;
-        }
-        SharedPreferences prefs = getSharedPreferences("samsu_payload", MODE_PRIVATE);
-        String manualId = prefs.getString("manual_payload_id", "");
-        List<String> ids = new ArrayList<>();
-        List<String> labels = new ArrayList<>();
-        ids.add(PayloadStore.BUNDLED_PAYLOAD_ID);
-        labels.add("Bundled: " + PayloadStore.BUNDLED_PAYLOAD_ID);
-        for (PayloadStore.Profile profile : registry) {
-            ids.add(profile.payloadId);
-            labels.add(profile.payloadId
-                    + (profile.displayName.isEmpty() ? "" : " - " + profile.displayName)
-                    + (PayloadStore.kernelMatches(profile) ? "" : " (kernel mismatch)"));
-        }
-        int checked = ids.indexOf(manualId.isEmpty() ? activePayloadId : manualId);
-        if (checked < 0) checked = 0;
-        new MaterialAlertDialogBuilder(this)
-                .setTitle("Select payload")
-                .setSingleChoiceItems(labels.toArray(new CharSequence[0]), checked,
-                        (dialog, which) -> {
-                            dialog.dismiss();
-                            String id = ids.get(which);
-                            prefs.edit().putString("manual_payload_id",
-                                    PayloadStore.BUNDLED_PAYLOAD_ID.equals(id)
-                                            ? "" : id).apply();
-                            payloadResolved = false;
-                            append("Payload selection: " + id);
-                            worker.execute(() -> {
-                                resolvePayload();
-                                refreshRootState();
-                            });
-                        })
-                .setNegativeButton(android.R.string.cancel, null)
-                .show();
+
+    private CharSequence buildPayloadButtonLabel() {
+        String prefix = "Payload selected : ";
+        SpannableString label = new SpannableString(prefix + activePayloadId);
+        label.setSpan(new android.text.style.AbsoluteSizeSpan(12, true), 0,
+                prefix.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        label.setSpan(new android.text.style.AbsoluteSizeSpan(10, true),
+                prefix.length(), label.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        return label;
     }
+    private void showPayloadDialog() {
+        List<PayloadStore.Profile> registry = lastRegistry;
+        if (registry == null) {
+            append("Fetching payload registry for selection ...");
+            worker.execute(() -> {
+                try {
+                    lastRegistry = PayloadStore.fetchRegistry();
+                } catch (Exception error) {
+                    append("Payload registry unavailable: " + error.getMessage());
+                    return;
+                }
+                ui.post(this::showPayloadDialog);
+            });
+            return;
+        }
+        SharedPreferences prefs = getSharedPreferences("samsu_payload", MODE_PRIVATE);
+        String manualId = prefs.getString("manual_payload_id", "");
+        String model = PayloadStore.deviceModel();
+        List<PayloadStore.Profile> options = new ArrayList<>();
+        options.add(PayloadStore.bundledProfile());
+        List<PayloadStore.Profile> deviceMatches = new ArrayList<>();
+        for (PayloadStore.Profile profile : registry) {
+            if (!profile.payloadId.equals(PayloadStore.BUNDLED_PAYLOAD_ID)
+                    && profile.models.contains(model)) {
+                deviceMatches.add(profile);
+            }
+        }
+        deviceMatches.sort((a, b) -> Boolean.compare(
+                PayloadStore.kernelMatches(b), PayloadStore.kernelMatches(a)));
+        for (PayloadStore.Profile profile : deviceMatches) {
+            if (options.size() >= 3) break;
+            options.add(profile);
+        }
+        if (options.size() <= 1) {
+            append("No alternative payloads available for this device.");
+            return;
+        }
+                float density = getResources().getDisplayMetrics().density;
+        LinearLayout list = new LinearLayout(this);
+        list.setOrientation(LinearLayout.VERTICAL);
+        int pad = (int) (12 * density);
+        list.setPadding(pad, pad / 2, pad, pad / 2);
+        MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(this)
+                .setTitle("Select payload")
+                .setView(list);
+        androidx.appcompat.app.AlertDialog dialog = builder.show();
+        android.view.Window popupWindow = dialog.getWindow();
+        if (popupWindow != null) {
+            android.view.WindowManager.LayoutParams popupParams = popupWindow.getAttributes();
+            popupParams.gravity = android.view.Gravity.TOP | android.view.Gravity.CENTER_HORIZONTAL;
+            popupParams.y = (int) (150 * getResources().getDisplayMetrics().density);
+            popupWindow.setAttributes(popupParams);
+        }
+        for (int index = 0; index < options.size(); index++) {
+            PayloadStore.Profile option = options.get(index);
+            boolean selected = option.payloadId.equals(
+                    manualId.isEmpty() ? PayloadStore.BUNDLED_PAYLOAD_ID : manualId);
+            boolean bundled = option.payloadId.equals(PayloadStore.BUNDLED_PAYLOAD_ID);
+            TextView row = new TextView(this);
+            row.setText((selected ? "Selected:  " : "") + (bundled ? "Bundled: " : "")
+                    + option.payloadId
+                    + (option.displayName.isEmpty() || bundled
+                            ? "" : "  -  " + option.displayName)
+                    + (bundled || PayloadStore.kernelMatches(option)
+                            ? "" : "  (kernel mismatch)"));
+            row.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+            row.setTypeface(null, selected ? Typeface.BOLD : Typeface.NORMAL);
+            row.setTextColor(selected ? 0xFFFFFFFF : 0xFFB9B9B9);
+            int padV = (int) (11 * density);
+            row.setPadding(pad, padV, pad, padV);
+            row.setOnClickListener(v -> {
+                dialog.dismiss();
+                prefs.edit().putString("manual_payload_id",
+                        PayloadStore.BUNDLED_PAYLOAD_ID.equals(option.payloadId)
+                                ? "" : option.payloadId).apply();
+                payloadResolved = false;
+                append("Payload selection: " + option.payloadId);
+                worker.execute(() -> {
+                    resolvePayload();
+                    refreshRootState();
+                });
+            });
+            list.addView(row);
+        }
+        dialog.show();
+    }
+
     private void toggleDiagnostics() {
         diagnosticsVisible = !diagnosticsVisible;
         diagnosticsCard.setVisibility(diagnosticsVisible ? View.VISIBLE : View.GONE);
@@ -733,8 +789,9 @@ public final class MainActivity extends AppCompatActivity {
         String attempted = engine.hasAttemptedThisBoot()
                 ? (state.ready() ? "Rooted" : "Spent")
                 : "Clean";
-        dashboard.setText(Html.fromHtml(getString(R.string.dashboard_format,
-                ksuManagerLabel(), shizuku, attempted, activePayloadId), Html.FROM_HTML_MODE_LEGACY));
+                dashboard.setText(Html.fromHtml(getString(R.string.dashboard_format,
+                ksuManagerLabel(), shizuku, attempted), Html.FROM_HTML_MODE_LEGACY));
+        payloadButton.setText(buildPayloadButtonLabel());
     }
 
     private void finishRun(M3qRootEngine.RootState state) {

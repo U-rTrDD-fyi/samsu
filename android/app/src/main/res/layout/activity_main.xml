@@ -55,8 +55,12 @@
                 android:enabled="false"
                 android:insetTop="0dp"
                 android:insetBottom="0dp"
+                android:paddingStart="10dp"
+                android:paddingEnd="10dp"
                 android:text="@string/unroot_reboot"
                 android:textColor="@color/unroot_text"
+                app:strokeColor="#6E6E6E"
+                app:strokeWidth="1dp"
                 android:textSize="14sp" />
         </LinearLayout>
 
@@ -124,6 +128,23 @@
                     android:padding="14dp"
                     android:textColor="?attr/colorOnSurfaceVariant"
                     android:textSize="15sp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/payload_button"
+                    android:layout_width="match_parent"
+                    android:layout_height="38dp"
+                    android:layout_marginTop="10dp"
+                    android:backgroundTint="#333333"
+                    android:gravity="start|center_vertical"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:paddingStart="14dp"
+                    android:paddingEnd="14dp"
+                    android:textColor="#FFFFFF"
+                    android:textSize="15sp"
+                    android:textStyle="bold"
+                    app:strokeColor="#6E6E6E"
+                    app:strokeWidth="1dp" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
@@ -157,8 +178,12 @@
                     android:id="@+id/restart_zygote"
                     android:layout_width="match_parent"
                     android:layout_height="52dp"
+                    android:backgroundTint="#333333"
                     android:enabled="false"
-                    android:text="@string/lsposed_reactivate" />
+                    android:text="@string/lsposed_reactivate"
+                    android:textColor="@color/unroot_text"
+                    app:strokeColor="#6E6E6E"
+                    app:strokeWidth="1dp" />
 
                 <View
                     android:layout_width="match_parent"
@@ -195,16 +220,6 @@
             android:layout_height="52dp"
             android:layout_marginTop="6dp"
             android:text="@string/export_log"
-            android:textColor="#66FFFFFF"
-            android:textSize="14sp" />
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/select_payload"
-            style="@style/Widget.Material3.Button.OutlinedButton"
-            android:layout_width="match_parent"
-            android:layout_height="52dp"
-            android:layout_marginTop="12dp"
-            android:text="@string/select_payload"
             android:textColor="#66FFFFFF"
             android:textSize="14sp" />
 
