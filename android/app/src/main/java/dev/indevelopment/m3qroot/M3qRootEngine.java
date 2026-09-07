@@ -407,7 +407,8 @@ final class M3qRootEngine {
         String stageOutput = String.join("\n", stageLines);
         String expectedMarker = "KSU_STAGE_OK:" + KSUD_SHA256;
         if (stageCode != 0 || !stageOutput.contains(expectedMarker)) {
-            if (allowGrantWait && stageOutput.contains("permission denied")) {
+            if (allowGrantWait
+                    && stageOutput.toLowerCase().contains("permission denied")) {
                 return waitAndRetryAfterGrant(helper, ksud);
             }
             log("KernelSU staging verification failed");
