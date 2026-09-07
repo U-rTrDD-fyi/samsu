@@ -460,10 +460,10 @@ final class M3qRootEngine {
      * on the same boot once the grant lands.
      */
     private int waitAndRetryAfterGrant(File helper, File ksud) {
-        status("KernelSU permission needed - approve in manager", 0xff9a6700);
-        log("KernelSU denied the root request; waiting up to 60 seconds for approval ...");
+        status("KernelSU approval needed, waiting 30 seconds", 0xff9a6700);
+        log("KernelSU denied the root request; waiting up to 30 seconds for approval ...");
         log("Open KernelSU Manager and allow root for SamSU (Allow forever).");
-        for (int waited = 0; waited < 60; waited += 2) {
+        for (int waited = 0; waited < 30; waited += 2) {
             try {
                 Thread.sleep(2000);
             } catch (InterruptedException ignored) {
@@ -483,7 +483,7 @@ final class M3qRootEngine {
             }
         }
         status("KernelSU root denied - reboot, allow SamSU, run again", 0xffffb4ab);
-        log("KernelSU never granted root within 60 seconds. "
+        log("KernelSU never granted root within 30 seconds. "
                 + "Approve SamSU in the KernelSU manager, then reboot and run again.");
         return 125;
     }
