@@ -453,16 +453,17 @@ final class M3qRootEngine {
     }
 
     /**
-     * Fresh installs (or a new package id) start without a KernelSU grant.
-     * The first staging attempt triggers the manager prompt and is denied;
-     * give the user up to 60 seconds to approve "Allow forever", then retry.
-     * The loaded driver stays up until reboot, so staging can still complete
-     * on the same boot once the grant lands.
+     * Fresh setups can have KernelSU reject the first root request after the
+     * driver late-loads (no manager prompt is involved). Give the driver up
+     * to 30 seconds to start accepting requests, then retry staging. The
+     * loaded driver stays up until reboot, so staging can still complete
+     * on the same boot.
      */
     private int waitAndRetryAfterGrant(File helper, File ksud) {
         status("KernelSU approval needed, waiting 30 seconds", 0xff9a6700);
-        log("KernelSU denied the root request; waiting up to 30 seconds for approval ...");
-        log("Open KernelSU Manager and allow root for SamSU (Allow forever).");
+        log("KernelSU rejected the first root request; waiting up to 30 seconds "
+                + "for the freshly loaded driver to accept it ...");
+        log("No manager prompt is shown - the wait itself usually resolves this.");
         for (int waited = 0; waited < 30; waited += 2) {
             try {
                 Thread.sleep(2000);
@@ -482,9 +483,9 @@ final class M3qRootEngine {
                 return activateKernelSu(helper, ksud, false);
             }
         }
-        status("KernelSU root denied - reboot, allow SamSU, run again", 0xffffb4ab);
-        log("KernelSU never granted root within 30 seconds. "
-                + "Approve SamSU in the KernelSU manager, then reboot and run again.");
+        status("KernelSU root denied - reboot and run again", 0xffffb4ab);
+        log("KernelSU did not accept the root request within 30 seconds. "
+                + "Reboot and run again.");
         return 125;
     }
 
