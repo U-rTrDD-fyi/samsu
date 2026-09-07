@@ -174,7 +174,7 @@ final class M3qRootEngine {
         if (useShizuku) {
             payload = stagePayloadForShell(payload);
             int rootCode = runShizukuTracefsRoot(helper, payload);
-            return rootCode == 0 ? activateKernelSu(helper, ksud) : rootCode;
+            return rootCode == 0 ? activateKernelSu(helper, ksud, true) : rootCode;
         }
 
         status("Checking device security state", STATUS_WORKING);
@@ -189,11 +189,11 @@ final class M3qRootEngine {
         } else {
             log("Process exit not confirmed; skipping root log finalization.");
         }
-        return rootCode == 0 ? activateKernelSu(helper, ksud) : rootCode;
+        return rootCode == 0 ? activateKernelSu(helper, ksud, true) : rootCode;
     }
 
     int activateKernelSu() {
-        return activateKernelSu(nativeFile(HELPER), nativeFile(KSUD));
+        return activateKernelSu(nativeFile(HELPER), nativeFile(KSUD), true);
     }
 
     int reapplyKernelSuModules() {
@@ -373,7 +373,7 @@ final class M3qRootEngine {
         env.put("P0_ATTEMPT_TIMEOUT_SEC", "90");
     }
 
-    private int activateKernelSu(File helper, File ksud) {
+    private int activateKernelSu(File helper, File ksud, boolean allowGrantWait) {
         if (!helper.isFile() || !ksud.isFile()) {
             log("KernelSU loader not found in APK.");
             return 126;
@@ -407,6 +407,9 @@ final class M3qRootEngine {
         String stageOutput = String.join("\n", stageLines);
         String expectedMarker = "KSU_STAGE_OK:" + KSUD_SHA256;
         if (stageCode != 0 || !stageOutput.contains(expectedMarker)) {
+            if (allowGrantWait && stageOutput.contains("permission denied")) {
+                return waitAndRetryAfterGrant(helper, ksud);
+            }
             log("KernelSU staging verification failed");
             return 125;
         }
@@ -447,6 +450,42 @@ final class M3qRootEngine {
         }
         log("KernelSU 3.2.5 LKM late-load verified");
         return 0;
+    }
+
+    /**
+     * Fresh installs (or a new package id) start without a KernelSU grant.
+     * The first staging attempt triggers the manager prompt and is denied;
+     * give the user up to 60 seconds to approve "Allow forever", then retry.
+     * The loaded driver stays up until reboot, so staging can still complete
+     * on the same boot once the grant lands.
+     */
+    private int waitAndRetryAfterGrant(File helper, File ksud) {
+        status("KernelSU permission needed - approve in manager", 0xff9a6700);
+        log("KernelSU denied the root request; waiting up to 60 seconds for approval ...");
+        log("Open KernelSU Manager and allow root for SamSU (Allow forever).");
+        for (int waited = 0; waited < 60; waited += 2) {
+            try {
+                Thread.sleep(2000);
+            } catch (InterruptedException ignored) {
+                Thread.currentThread().interrupt();
+                return 125;
+            }
+            List<String> probeLines = new ArrayList<>();
+            ProcessBuilder probe = new ProcessBuilder(
+                    helper.getAbsolutePath(), "-c", "id");
+            probe.redirectErrorStream(true);
+            int probeCode = runProcess(probe, 10, probeLines, false);
+            String probeOutput = String.join("\n", probeLines);
+            if (probeCode == 0 && probeOutput.contains("uid=0")) {
+                log("KernelSU root granted after " + (waited + 2)
+                        + " seconds; retrying KernelSU staging.");
+                return activateKernelSu(helper, ksud, false);
+            }
+        }
+        status("KernelSU root denied - reboot, allow SamSU, run again", 0xffffb4ab);
+        log("KernelSU never granted root within 60 seconds. "
+                + "Approve SamSU in the KernelSU manager, then reboot and run again.");
+        return 125;
     }
 
     private void appendKernelSuLog(File helper) {
