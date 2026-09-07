@@ -125,11 +125,11 @@ public final class MainActivity extends AppCompatActivity {
         append("Kernel: " + System.getProperty("os.version", "unknown"));
         append("Firmware: " + Build.FINGERPRINT);
 
-        if (!engine.isSupported()) {
-            setStatus("Unsupported firmware", STATUS_WARNING);
-            setStatusDetail("This app only runs on the SM-S931B S931BXXUCZZHL firmware.");
+        if (!deviceSupported()) {
+            setStatus("Checking device", STATUS_WORKING);
+            setStatusDetail("Verifying firmware and payload compatibility.");
             run.setEnabled(false);
-            append("It only runs on the exact SM-S931B S931BXXUCZZHL build.");
+            append("Bundled payload targets SM-S931B S931BXXUCZZHL; other devices can pick a matching payload.");
         } else {
             setStatus(getString(R.string.status_checking), STATUS_WORKING);
             setStatusDetail(getString(R.string.status_checking_detail));
@@ -201,7 +201,7 @@ public final class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        if (engine != null && engine.isSupported() && !running.get()) {
+        if (engine != null && !running.get()) {
             worker.execute(() -> {
             resolvePayload();
             refreshRootState();
@@ -217,96 +217,115 @@ public final class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void resolvePayload() {
-        if (payloadResolved) return;
-        payloadResolved = true;
-        SharedPreferences prefs = getSharedPreferences("samsu_payload", MODE_PRIVATE);
-        String manualId = prefs.getString("manual_payload_id", "");
-        List<PayloadStore.Profile> registry;
-        try {
-            registry = PayloadStore.fetchRegistry();
-            lastRegistry = registry;
-        } catch (Exception error) {
-            append("Payload registry unavailable: " + error.getMessage());
-            useBundledPayload(manualId);
-            return;
-        }
-
-        PayloadStore.Profile match = null;
-        boolean kernelMismatch = false;
-        if (!manualId.isEmpty()) {
-            match = PayloadStore.findById(registry, manualId);
-            if (match == null && manualId.equals(PayloadStore.BUNDLED_PAYLOAD_ID)) {
-                append("Using bundled payload (manual selection).");
-                activePayloadId = PayloadStore.BUNDLED_PAYLOAD_ID;
-                engine.setPayloadOverride(null);
-                return;
-            }
-            if (match != null) {
-                kernelMismatch = !PayloadStore.kernelMatches(match);
-                if (kernelMismatch) {
-                    append("WARNING: manually selected payload " + match.payloadId
-                            + " targets a different kernel; trying anyway.");
-                }
-            }
-        }
-        if (match == null) {
-            match = PayloadStore.matchRemote(registry);
-        }
-        if (match == null) {
-            append("No remote payload matches this device; using bundled "
-                    + PayloadStore.BUNDLED_PAYLOAD_ID + ".");
-            activePayloadId = PayloadStore.BUNDLED_PAYLOAD_ID;
-            return;
-        }
-        if (kernelMismatch) {
-            append("WARNING: kernel version differs from the payload target; "
-                    + "attempting anyway.");
-        }
-        File cached = PayloadStore.cachedPayload(this, match.payloadId);
-        if (cached.isFile()) {
-            activePayloadId = match.payloadId;
-            engine.setPayloadOverride(cached);
-            append("Using cached payload " + match.payloadId + ".");
-            return;
-        }
-        append("Downloading payload " + match.payloadId + " ...");
-        try {
-            File file = PayloadStore.downloadExploit(this, match);
-            activePayloadId = match.payloadId;
-            engine.setPayloadOverride(file);
-            append("Payload downloaded: " + file.getName()
-                    + " (" + file.length() + " bytes)");
-        } catch (Exception error) {
-            append("Payload download failed: " + error.getMessage());
-            append("Using bundled payload " + PayloadStore.BUNDLED_PAYLOAD_ID + ".");
-            activePayloadId = PayloadStore.BUNDLED_PAYLOAD_ID;
-        }
-    }
-
-    private void useBundledPayload(String manualId) {
-        File cached = manualId.isEmpty()
-                ? null : PayloadStore.cachedPayload(this, manualId);
-        if (cached != null && cached.isFile()
-                && !manualId.equals(PayloadStore.BUNDLED_PAYLOAD_ID)) {
-            activePayloadId = manualId;
-            engine.setPayloadOverride(cached);
-            append("Using cached payload " + manualId + ".");
-            return;
-        }
-        append("Using bundled payload " + PayloadStore.BUNDLED_PAYLOAD_ID + ".");
-        activePayloadId = PayloadStore.BUNDLED_PAYLOAD_ID;
-    }
-
-    private CharSequence buildPayloadButtonLabel() {
-        String prefix = "Payload selected : ";
-        SpannableString label = new SpannableString(prefix + activePayloadId);
-        label.setSpan(new android.text.style.AbsoluteSizeSpan(12, true), 0,
-                prefix.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-        label.setSpan(new android.text.style.AbsoluteSizeSpan(10, true),
-                prefix.length(), label.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-        return label;
-    }
+    private volatile PayloadStore.Profile activeProfile;
+
+    /** Bundled-target check, relaxed when a registry payload matches this device. */
+    private boolean deviceSupported() {
+        if (engine.isSupported()) return true;
+        PayloadStore.Profile profile = activeProfile;
+        return profile != null
+                && profile.models.contains(PayloadStore.deviceModel());
+    }
+
+    private void resolvePayload() {
+        if (payloadResolved) return;
+        payloadResolved = true;
+        SharedPreferences prefs = getSharedPreferences("samsu_payload", MODE_PRIVATE);
+        String manualId = prefs.getString("manual_payload_id", "");
+        List<PayloadStore.Profile> registry;
+        try {
+            registry = PayloadStore.fetchRegistry();
+            lastRegistry = registry;
+        } catch (Exception error) {
+            append("Payload registry unavailable: " + error.getMessage());
+            useBundledPayload(manualId);
+            return;
+        }
+
+        PayloadStore.Profile match = null;
+        boolean kernelMismatch = false;
+        if (!manualId.isEmpty()) {
+            match = PayloadStore.findById(registry, manualId);
+            if (match == null && manualId.equals(PayloadStore.BUNDLED_PAYLOAD_ID)) {
+                append("Using bundled payload (manual selection).");
+                activePayloadId = PayloadStore.BUNDLED_PAYLOAD_ID;
+                activeProfile = null;
+                engine.setPayloadOverride(null);
+                return;
+            }
+            if (match != null) {
+                kernelMismatch = !PayloadStore.kernelMatches(match);
+                if (kernelMismatch) {
+                    append("WARNING: manually selected payload " + match.payloadId
+                            + " targets a different kernel; trying anyway.");
+                }
+            }
+        }
+        if (match == null) {
+            match = PayloadStore.matchRemote(registry);
+        }
+        if (match == null) {
+            append("No remote payload matches this device; using bundled "
+                    + PayloadStore.BUNDLED_PAYLOAD_ID + ".");
+            activePayloadId = PayloadStore.BUNDLED_PAYLOAD_ID;
+            activeProfile = null;
+            return;
+        }
+        if (kernelMismatch) {
+            append("WARNING: kernel version differs from the payload target; "
+                    + "attempting anyway.");
+        }
+        File cached = PayloadStore.cachedPayload(this, match.payloadId);
+        if (cached.isFile()) {
+            activePayloadId = match.payloadId;
+            activeProfile = match;
+            engine.setPayloadOverride(cached);
+            append("Using cached payload " + match.payloadId + ".");
+            return;
+        }
+        append("Downloading payload " + match.payloadId + " ...");
+        try {
+            File file = PayloadStore.downloadExploit(this, match);
+            activePayloadId = match.payloadId;
+            activeProfile = match;
+            engine.setPayloadOverride(file);
+            append("Payload downloaded: " + file.getName()
+                    + " (" + file.length() + " bytes)");
+        } catch (Exception error) {
+            append("Payload download failed: " + error.getMessage());
+            append("Using bundled payload " + PayloadStore.BUNDLED_PAYLOAD_ID + ".");
+            activePayloadId = PayloadStore.BUNDLED_PAYLOAD_ID;
+            activeProfile = null;
+        }
+    }
+
+    private void useBundledPayload(String manualId) {
+        File cached = manualId.isEmpty()
+                ? null : PayloadStore.cachedPayload(this, manualId);
+        if (cached != null && cached.isFile()
+                && !manualId.equals(PayloadStore.BUNDLED_PAYLOAD_ID)) {
+            activePayloadId = manualId;
+            activeProfile = new PayloadStore.Profile(manualId, "",
+                    java.util.Arrays.asList(PayloadStore.deviceModel()),
+                    new java.util.ArrayList<>(), "", -1);
+            engine.setPayloadOverride(cached);
+            append("Using cached payload " + manualId + ".");
+            return;
+        }
+        append("Using bundled payload " + PayloadStore.BUNDLED_PAYLOAD_ID + ".");
+        activePayloadId = PayloadStore.BUNDLED_PAYLOAD_ID;
+        activeProfile = null;
+    }
+
+    private CharSequence buildPayloadButtonLabel() {
+        String prefix = "Payload selected : ";
+        SpannableString label = new SpannableString(prefix + activePayloadId);
+        label.setSpan(new android.text.style.AbsoluteSizeSpan(12, true), 0,
+                prefix.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        label.setSpan(new android.text.style.AbsoluteSizeSpan(10, true),
+                prefix.length(), label.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        return label;
+    }
     private void showPayloadDialog() {
         List<PayloadStore.Profile> registry = lastRegistry;
         if (registry == null) {
@@ -344,11 +363,11 @@ public final class MainActivity extends AppCompatActivity {
             append("No alternative payloads available for this device.");
             return;
         }
-                float density = getResources().getDisplayMetrics().density;
-        LinearLayout list = new LinearLayout(this);
-        list.setOrientation(LinearLayout.VERTICAL);
-        int pad = (int) (12 * density);
-        list.setPadding(pad, pad / 2, pad, pad / 2);
+                float density = getResources().getDisplayMetrics().density;
+        LinearLayout list = new LinearLayout(this);
+        list.setOrientation(LinearLayout.VERTICAL);
+        int pad = (int) (12 * density);
+        list.setPadding(pad, pad / 2, pad, pad / 2);
         MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(this)
                 .setTitle("Select payload")
                 .setView(list);
@@ -359,38 +378,38 @@ public final class MainActivity extends AppCompatActivity {
             popupParams.gravity = android.view.Gravity.TOP | android.view.Gravity.CENTER_HORIZONTAL;
             popupParams.y = (int) (150 * getResources().getDisplayMetrics().density);
             popupWindow.setAttributes(popupParams);
-        }
-        for (int index = 0; index < options.size(); index++) {
-            PayloadStore.Profile option = options.get(index);
-            boolean selected = option.payloadId.equals(
-                    manualId.isEmpty() ? PayloadStore.BUNDLED_PAYLOAD_ID : manualId);
-            boolean bundled = option.payloadId.equals(PayloadStore.BUNDLED_PAYLOAD_ID);
-            TextView row = new TextView(this);
-            row.setText((selected ? "Selected:  " : "") + (bundled ? "Bundled: " : "")
-                    + option.payloadId
-                    + (option.displayName.isEmpty() || bundled
-                            ? "" : "  -  " + option.displayName)
-                    + (bundled || PayloadStore.kernelMatches(option)
-                            ? "" : "  (kernel mismatch)"));
-            row.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
-            row.setTypeface(null, selected ? Typeface.BOLD : Typeface.NORMAL);
-            row.setTextColor(selected ? 0xFFFFFFFF : 0xFFB9B9B9);
-            int padV = (int) (11 * density);
-            row.setPadding(pad, padV, pad, padV);
-            row.setOnClickListener(v -> {
-                dialog.dismiss();
-                prefs.edit().putString("manual_payload_id",
-                        PayloadStore.BUNDLED_PAYLOAD_ID.equals(option.payloadId)
-                                ? "" : option.payloadId).apply();
-                payloadResolved = false;
-                append("Payload selection: " + option.payloadId);
-                worker.execute(() -> {
-                    resolvePayload();
-                    refreshRootState();
-                });
-            });
-            list.addView(row);
-        }
+        }
+        for (int index = 0; index < options.size(); index++) {
+            PayloadStore.Profile option = options.get(index);
+            boolean selected = option.payloadId.equals(
+                    manualId.isEmpty() ? PayloadStore.BUNDLED_PAYLOAD_ID : manualId);
+            boolean bundled = option.payloadId.equals(PayloadStore.BUNDLED_PAYLOAD_ID);
+            TextView row = new TextView(this);
+            row.setText((selected ? "Selected:  " : "") + (bundled ? "Bundled: " : "")
+                    + option.payloadId
+                    + (option.displayName.isEmpty() || bundled
+                            ? "" : "  -  " + option.displayName)
+                    + (bundled || PayloadStore.kernelMatches(option)
+                            ? "" : "  (kernel mismatch)"));
+            row.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+            row.setTypeface(null, selected ? Typeface.BOLD : Typeface.NORMAL);
+            row.setTextColor(selected ? 0xFFFFFFFF : 0xFFB9B9B9);
+            int padV = (int) (11 * density);
+            row.setPadding(pad, padV, pad, padV);
+            row.setOnClickListener(v -> {
+                dialog.dismiss();
+                prefs.edit().putString("manual_payload_id",
+                        PayloadStore.BUNDLED_PAYLOAD_ID.equals(option.payloadId)
+                                ? "" : option.payloadId).apply();
+                payloadResolved = false;
+                append("Payload selection: " + option.payloadId);
+                worker.execute(() -> {
+                    resolvePayload();
+                    refreshRootState();
+                });
+            });
+            list.addView(row);
+        }
         dialog.show();
     }
 
@@ -692,7 +711,7 @@ public final class MainActivity extends AppCompatActivity {
         running.set(false);
         ui.post(() -> {
             run.setVisibility(View.VISIBLE);
-            run.setEnabled(engine.isSupported());
+            run.setEnabled(deviceSupported());
             reapplyModules.setEnabled(false);
             restartZygote.setEnabled(false);
             unrootReboot.setEnabled(false);
@@ -736,11 +755,11 @@ public final class MainActivity extends AppCompatActivity {
         } else {
             run.setVisibility(View.VISIBLE);
             setStatus("Temporary root inactive", STATUS_NEUTRAL);
-            setStatusDetail(engine.isSupported()
+            setStatusDetail(deviceSupported()
                     ? "Device verified - Wait 180s after boot"
                     : "Device not supported");
             run.setText(R.string.root_activate);
-            run.setEnabled(engine.isSupported());
+            run.setEnabled(deviceSupported());
         }
         boolean ksuOk = ksuManagerVersionOk();
         boolean maintenanceReady = state.ready() && !running.get() && ksuOk;
@@ -751,33 +770,33 @@ public final class MainActivity extends AppCompatActivity {
         renderDashboard(state);
     }
 
-
-    private boolean ksuManagerVersionOk() {
-        try {
-            PackageInfo info = getPackageManager().getPackageInfo(
-                    KSU_MANAGER_PACKAGE, PackageManager.PackageInfoFlags.of(0));
-            return normalizeKsuVersion(info.versionName).startsWith("3.2.5");
-        } catch (PackageManager.NameNotFoundException e) {
-            return false;
-        }
-    }
-
-    private String ksuManagerLabel() {
-        try {
-            PackageInfo info = getPackageManager().getPackageInfo(
-                    KSU_MANAGER_PACKAGE, PackageManager.PackageInfoFlags.of(0));
-            String version = normalizeKsuVersion(info.versionName);
-            return version.startsWith("3.2.5") ? version + " \u2713" : "<font color=#FFB4AB>" + version + " \u2717 needs 3.2.5</font>";
-        } catch (PackageManager.NameNotFoundException e) {
-            return "Not installed";
-        }
-    }
-
-    private static String normalizeKsuVersion(String versionName) {
-        if (versionName == null) return "unknown";
-        return versionName.replaceFirst("^[vV]", "").trim();
-    }
-
+
+    private boolean ksuManagerVersionOk() {
+        try {
+            PackageInfo info = getPackageManager().getPackageInfo(
+                    KSU_MANAGER_PACKAGE, PackageManager.PackageInfoFlags.of(0));
+            return normalizeKsuVersion(info.versionName).startsWith("3.2.5");
+        } catch (PackageManager.NameNotFoundException e) {
+            return false;
+        }
+    }
+
+    private String ksuManagerLabel() {
+        try {
+            PackageInfo info = getPackageManager().getPackageInfo(
+                    KSU_MANAGER_PACKAGE, PackageManager.PackageInfoFlags.of(0));
+            String version = normalizeKsuVersion(info.versionName);
+            return version.startsWith("3.2.5") ? version + " \u2713" : "<font color=#FFB4AB>" + version + " \u2717 needs 3.2.5</font>";
+        } catch (PackageManager.NameNotFoundException e) {
+            return "Not installed";
+        }
+    }
+
+    private static String normalizeKsuVersion(String versionName) {
+        if (versionName == null) return "unknown";
+        return versionName.replaceFirst("^[vV]", "").trim();
+    }
+
     private void renderDashboard(M3qRootEngine.RootState state) {
         boolean shizukuRunning = ShizukuShell.isRunning();
         boolean shizukuGranted = ShizukuShell.isGranted();
