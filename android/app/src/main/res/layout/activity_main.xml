@@ -159,16 +159,42 @@
                     android:textColor="?attr/colorOnSurfaceVariant"
                     android:textSize="13sp" />
 
-                                <TextView
-                    android:id="@+id/dashboard"
+                                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="14dp"
-                    android:background="@drawable/dashboard_bg"
-                    android:lineSpacingExtra="4dp"
-                    android:padding="14dp"
-                    android:textColor="?attr/colorOnSurfaceVariant"
-                    android:textSize="15sp" />
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:id="@+id/dashboard"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:minHeight="88dp"
+                        android:background="@drawable/dashboard_bg"
+                        android:lineSpacingExtra="4dp"
+                        android:padding="14dp"
+                        android:textColor="?attr/colorOnSurfaceVariant"
+                        android:textSize="15sp" />
+
+                    <FrameLayout
+                        android:id="@+id/status_tile"
+                        android:layout_width="88dp"
+                        android:layout_height="match_parent"
+                        android:layout_marginStart="10dp"
+                        android:background="@drawable/tile_bad"
+                        android:clipToOutline="true">
+
+                        <ImageView
+                            android:id="@+id/status_icon"
+                            android:layout_width="140dp"
+                            android:layout_height="140dp"
+                            android:layout_gravity="center"
+                            android:src="@drawable/ic_sign_bad"
+                            android:translationX="20dp"
+                            android:translationY="20dp" />
+                    </FrameLayout>
+                </LinearLayout>
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/payload_button"

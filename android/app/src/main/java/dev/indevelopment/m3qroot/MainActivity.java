@@ -75,6 +75,8 @@ public final class MainActivity extends AppCompatActivity {
     private TextView status;
     private TextView statusDetail;
     private TextView dashboard;
+    private android.view.View statusTile;
+    private android.widget.ImageView statusIcon;
     private MaterialButton payloadButton;
     private TextView subtitleText;
     private TextView versionChip;
@@ -144,12 +146,23 @@ public final class MainActivity extends AppCompatActivity {
         status = findViewById(R.id.status);
         statusDetail = findViewById(R.id.status_detail);
         dashboard = findViewById(R.id.dashboard);
+        statusTile = findViewById(R.id.status_tile);
+        statusIcon = findViewById(R.id.status_icon);
         payloadButton = findViewById(R.id.payload_button);
         subtitleText = findViewById(R.id.app_subtitle);
         subtitleText.setText(deviceMarketingLabel());
         versionChip = findViewById(R.id.version_chip);
         updateChip = findViewById(R.id.update_chip);
         versionChip.setText(appVersion());
+        updateChip.setOnClickListener(v -> {
+            try {
+                startActivity(new android.content.Intent(
+                        android.content.Intent.ACTION_VIEW,
+                        android.net.Uri.parse("https://github.com/mitschud/samsu/releases")));
+            } catch (Exception ignored) {
+                /* No browser on device — leave the pill non-functional rather than crash. */
+            }
+        });
         worker.execute(this::checkForAppUpdate);
         log = findViewById(R.id.log);
         log.setMovementMethod(new ScrollingMovementMethod());
@@ -1059,6 +1072,9 @@ public final class MainActivity extends AppCompatActivity {
                 : "Clean";
                 dashboard.setText(Html.fromHtml(getString(R.string.dashboard_format,
                 ksuManagerLabel(), shizuku, attempted), Html.FROM_HTML_MODE_LEGACY));
+        boolean tileOk = state.ready() && shizukuRunning && shizukuGranted;
+        statusTile.setBackgroundResource(tileOk ? R.drawable.tile_ok : R.drawable.tile_bad);
+        statusIcon.setImageResource(tileOk ? R.drawable.ic_sign_check : R.drawable.ic_sign_bad);
         payloadButton.setText(buildPayloadButtonLabel());
     }
 

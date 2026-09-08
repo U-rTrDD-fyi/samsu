@@ -1,0 +1,20 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="140dp"
+    android:height="140dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    <!-- KernelSU-style sign: circle ring + check with tail exiting the ring -->
+    <path
+        android:pathData="M24,10 a14,14 0 1,1 -0.01,0"
+        android:strokeColor="#52D89A"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000" />
+    <path
+        android:pathData="M15,25 L22,32 L42,10"
+        android:strokeColor="#52D89A"
+        android:strokeWidth="4.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:fillColor="#00000000" />
+</vector>
