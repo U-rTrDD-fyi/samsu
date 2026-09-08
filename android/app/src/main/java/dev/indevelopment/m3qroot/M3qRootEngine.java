@@ -50,6 +50,7 @@ final class M3qRootEngine {
     private static final String HELPER = "libm3qroot.so";
     private static final String ORACLE = "libm3qoracle.so";
     private static final String PAYLOAD = "libm3qpayload.so";
+    private static final String PAYLOAD_S938B = "libm3qpayload_s938b.so";
     private static final String KSUD = "libm3qksud.so";
     private static final String KSU_LOADER_PATH =
             "/data/local/tmp/ksud-s25u-kdp";
@@ -91,9 +92,16 @@ final class M3qRootEngine {
     }
 
     boolean isSupported() {
-        return MODEL.equals(Build.MODEL)
-                && KERNEL.equals(System.getProperty("os.version", ""))
-                && Build.FINGERPRINT.contains(FINGERPRINT);
+        String kernel = System.getProperty("os.version", "");
+        if (MODEL.equals(Build.MODEL)
+                && KERNEL.equals(kernel)
+                && Build.FINGERPRINT.contains(FINGERPRINT)) {
+            return true;
+        }
+        // Same p33f4ffe GKI build ships on the S25 Ultra (pa3q) in beta 2.
+        return "SM-S938B".equals(Build.MODEL)
+                && kernel.startsWith("6.6.127-android15-8-p33f4ffe")
+                && Build.FINGERPRINT.contains("S938BXXUCZZI4");
     }
 
     RootState checkRoot(boolean verbose) {
@@ -914,7 +922,15 @@ final class M3qRootEngine {
     private File activePayload() {
         File override = payloadOverride;
         if (override != null && override.isFile()) return override;
-        return nativeFile(PAYLOAD);
+        return nativeFile(bundledPayloadLib);
+    }
+
+    /** Which bundled payload library to fall back to (S931B default). */
+    private volatile String bundledPayloadLib = PAYLOAD;
+
+    void setBundledPayloadLib(String libName) {
+        bundledPayloadLib = libName == null || libName.isEmpty()
+                ? PAYLOAD : libName;
     }
 
     private File nativeFile(String name) {

@@ -26,6 +26,7 @@ import java.util.List;
  */
 final class PayloadStore {
     static final String BUNDLED_PAYLOAD_ID = "pa1q-S931BXXUCZZI4";
+    static final String BUNDLED_PAYLOAD_ID_S938B = "pa3q-S938BXXUCZZI4";
     static final String BUNDLED_KMI = "android15-6.6";
     private static final String REGISTRY_URL =
             "https://raw.githubusercontent.com/BuSung-dev/Root-My-Galaxy-Payloads/main/support/targets-v3.json";
@@ -127,14 +128,43 @@ final class PayloadStore {
         return null;
     }
 
-    /** The bundled fallback profile (this APK's compiled payload). */
+    /** The bundled fallback profile (this APK's compiled payloads). */
     static Profile bundledProfile() {
+        return bundledProfile(bundledPayloadIdForDevice());
+    }
+
+    /** Bundled profile for a specific bundled payload id. */
+    static Profile bundledProfile(String payloadId) {
+        boolean ultra = BUNDLED_PAYLOAD_ID_S938B.equals(payloadId);
         List<String> models = new ArrayList<>();
-        models.add("SM-S931B");
+        models.add(ultra ? "SM-S938B" : "SM-S931B");
         List<String> kernels = new ArrayList<>();
         kernels.add("6.6.127");
-        return new Profile(BUNDLED_PAYLOAD_ID,
-                "Galaxy S25 | Kernel 6.6.127 (One UI 9 beta 2, bundled)", models,kernels, "", -1);
+        return new Profile(payloadId,
+                ultra ? "Galaxy S25 Ultra | Kernel 6.6.127 (One UI 9 beta 2, bundled)"
+                      : "Galaxy S25 | Kernel 6.6.127 (One UI 9 beta 2, bundled)",
+                models, kernels, "", -1);
+    }
+
+    /** True for any payload compiled into this APK. */
+    static boolean isBundledId(String payloadId) {
+        return BUNDLED_PAYLOAD_ID.equals(payloadId)
+                || BUNDLED_PAYLOAD_ID_S938B.equals(payloadId);
+    }
+
+    /** The bundled payload matching this device: S25 Ultra vs S25. */
+    static String bundledPayloadIdForDevice() {
+        if ("SM-S938B".equals(deviceModel())
+                && deviceKernel().startsWith("6.6.127")) {
+            return BUNDLED_PAYLOAD_ID_S938B;
+        }
+        return BUNDLED_PAYLOAD_ID;
+    }
+
+    /** jniLib file name of the bundled payload for a bundled id. */
+    static String bundledLibName(String payloadId) {
+        return BUNDLED_PAYLOAD_ID_S938B.equals(payloadId)
+                ? "libm3qpayload_s938b.so" : "libm3qpayload.so";
     }
 
     /** GKI KMI string for a kernel version, e.g. "6.1.157" -> "android14-6.1". */

@@ -133,7 +133,7 @@ public final class MainActivity extends AppCompatActivity {
             setStatus("Checking device", STATUS_WORKING);
             setStatusDetail("Verifying firmware and payload compatibility.");
             run.setEnabled(false);
-            append("Bundled payload targets SM-S931B S931BXXUCZZI4 (One UI 9 beta 2); other devices can pick a matching payload.");
+            append("Bundled payloads target Galaxy S25 (S931BXXUCZZI4) and Galaxy S25 Ultra (S938BXXUCZZI4), both One UI 9 beta 2; other devices can pick a matching payload.");
         } else {
             setStatus(getString(R.string.status_checking), STATUS_WORKING);
             setStatusDetail(getString(R.string.status_checking_detail));
@@ -266,11 +266,12 @@ public final class MainActivity extends AppCompatActivity {
         boolean kernelMismatch = false;
         if (!manualId.isEmpty()) {
             match = PayloadStore.findById(registry, manualId);
-            if (match == null && manualId.equals(PayloadStore.BUNDLED_PAYLOAD_ID)) {
+            if (match == null && PayloadStore.isBundledId(manualId)) {
                 append("Using bundled payload (manual selection).");
-                activePayloadId = PayloadStore.BUNDLED_PAYLOAD_ID;
+                activePayloadId = manualId;
                 activeProfile = null;
                 engine.setPayloadOverride(null);
+                engine.setBundledPayloadLib(PayloadStore.bundledLibName(manualId));
                 engine.setKsudOverride(null, -1);
                 engine.setKmiOverride(null);
                 return;
@@ -287,10 +288,13 @@ public final class MainActivity extends AppCompatActivity {
             match = PayloadStore.matchRemote(registry);
         }
         if (match == null) {
+            String bundledId = PayloadStore.bundledPayloadIdForDevice();
             append("No remote payload matches this device; using bundled "
-                    + PayloadStore.BUNDLED_PAYLOAD_ID + ".");
-            activePayloadId = PayloadStore.BUNDLED_PAYLOAD_ID;
+                    + bundledId + ".");
+            activePayloadId = bundledId;
             activeProfile = null;
+            engine.setPayloadOverride(null);
+            engine.setBundledPayloadLib(PayloadStore.bundledLibName(bundledId));
             engine.setKsudOverride(null, -1);
             engine.setKmiOverride(null);
             return;
@@ -328,11 +332,13 @@ public final class MainActivity extends AppCompatActivity {
             append("Payload downloaded: " + file.getName()
                     + " (" + file.length() + " bytes)");
         } catch (Exception error) {
+            String bundledId = PayloadStore.bundledPayloadIdForDevice();
             append("Payload download failed: " + error.getMessage());
-            append("Using bundled payload " + PayloadStore.BUNDLED_PAYLOAD_ID + ".");
-            activePayloadId = PayloadStore.BUNDLED_PAYLOAD_ID;
+            append("Using bundled payload " + bundledId + ".");
+            activePayloadId = bundledId;
             activeProfile = null;
             engine.setPayloadOverride(null);
+            engine.setBundledPayloadLib(PayloadStore.bundledLibName(bundledId));
             engine.setKsudOverride(null, -1);
             engine.setKmiOverride(null);
         } finally {
@@ -387,7 +393,7 @@ public final class MainActivity extends AppCompatActivity {
         File cached = manualId.isEmpty()
                 ? null : PayloadStore.cachedPayload(this, manualId);
         if (cached != null && cached.isFile()
-                && !manualId.equals(PayloadStore.BUNDLED_PAYLOAD_ID)) {
+                && !PayloadStore.isBundledId(manualId)) {
             activePayloadId = manualId;
             activeProfile = new PayloadStore.Profile(manualId, "",
                     java.util.Arrays.asList(PayloadStore.deviceModel()),
@@ -400,9 +406,12 @@ public final class MainActivity extends AppCompatActivity {
             append("Using cached payload " + manualId + ".");
             return;
         }
-        append("Using bundled payload " + PayloadStore.BUNDLED_PAYLOAD_ID + ".");
-        activePayloadId = PayloadStore.BUNDLED_PAYLOAD_ID;
+        String bundledId = PayloadStore.bundledPayloadIdForDevice();
+        append("Using bundled payload " + bundledId + ".");
+        activePayloadId = bundledId;
         activeProfile = null;
+        engine.setPayloadOverride(null);
+        engine.setBundledPayloadLib(PayloadStore.bundledLibName(bundledId));
         engine.setKsudOverride(null, -1);
         engine.setKmiOverride(null);
     }
@@ -445,9 +454,14 @@ public final class MainActivity extends AppCompatActivity {
         String model = PayloadStore.deviceModel();
         List<PayloadStore.Profile> options = new ArrayList<>();
         options.add(PayloadStore.bundledProfile());
+        options.add(PayloadStore.bundledProfile(
+                PayloadStore.bundledPayloadIdForDevice()
+                        .equals(PayloadStore.BUNDLED_PAYLOAD_ID)
+                        ? PayloadStore.BUNDLED_PAYLOAD_ID_S938B
+                        : PayloadStore.BUNDLED_PAYLOAD_ID));
         List<PayloadStore.Profile> deviceMatches = new ArrayList<>();
         for (PayloadStore.Profile profile : registry) {
-            if (!profile.payloadId.equals(PayloadStore.BUNDLED_PAYLOAD_ID)
+            if (!PayloadStore.isBundledId(profile.payloadId)
                     && profile.models.contains(model)) {
                 deviceMatches.add(profile);
             }
@@ -455,7 +469,7 @@ public final class MainActivity extends AppCompatActivity {
         deviceMatches.sort((a, b) -> Boolean.compare(
                 PayloadStore.kernelMatches(b), PayloadStore.kernelMatches(a)));
         for (PayloadStore.Profile profile : deviceMatches) {
-            if (options.size() >= 3) break;
+            if (options.size() >= 4) break;
             options.add(profile);
         }
                 float density = getResources().getDisplayMetrics().density;
@@ -479,6 +493,7 @@ public final class MainActivity extends AppCompatActivity {
         list.addView(holdHint, 1);
         LinearLayout rowsBox = new LinearLayout(this);
         rowsBox.setOrientation(LinearLayout.VERTICAL);
+        rowsBox.setPadding(0, 0, 0, (int) (14 * density));
         final int maxRowsHeight = (int) (getResources().getDisplayMetrics().heightPixels * 0.45f);
         android.widget.ScrollView rowsScroll = new android.widget.ScrollView(this) {
             @Override
@@ -514,8 +529,9 @@ public final class MainActivity extends AppCompatActivity {
         for (int index = 0; index < options.size(); index++) {
             PayloadStore.Profile option = options.get(index);
             boolean selected = option.payloadId.equals(
-                    manualId.isEmpty() ? PayloadStore.BUNDLED_PAYLOAD_ID : manualId);
-            boolean bundled = option.payloadId.equals(PayloadStore.BUNDLED_PAYLOAD_ID);
+                    manualId.isEmpty()
+                        ? PayloadStore.bundledPayloadIdForDevice() : manualId);
+            boolean bundled = PayloadStore.isBundledId(option.payloadId);
             boolean downloaded = bundled
                     || PayloadStore.cachedPayload(this, option.payloadId).isFile();
             com.google.android.material.button.MaterialButton row =
@@ -606,9 +622,11 @@ public final class MainActivity extends AppCompatActivity {
     private void selectPayloadRow(PayloadStore.Profile option,
             SharedPreferences prefs, androidx.appcompat.app.AlertDialog dialog) {
         dialog.dismiss();
-        prefs.edit().putString("manual_payload_id",
-                PayloadStore.BUNDLED_PAYLOAD_ID.equals(option.payloadId)
-                        ? "" : option.payloadId).apply();
+        // "" = auto (device default bundled); explicit id for everything else,
+        // including the non-default bundled payload.
+        String newId = PayloadStore.BUNDLED_PAYLOAD_ID.equals(option.payloadId)
+                ? "" : option.payloadId;
+        prefs.edit().putString("manual_payload_id", newId).apply();
         payloadResolved = false;
         append("Payload selection: " + option.payloadId);
         worker.execute(() -> {
@@ -625,11 +643,13 @@ public final class MainActivity extends AppCompatActivity {
         append("Removed cached payload " + payloadId
                 + (removedExploit && removedKsud ? "." : " (partial)."));
         if (activePayloadId != null && activePayloadId.equals(payloadId)) {
+            String bundledId = PayloadStore.bundledPayloadIdForDevice();
             getSharedPreferences("samsu_payload", MODE_PRIVATE)
                     .edit().putString("manual_payload_id", "").apply();
-            activePayloadId = PayloadStore.BUNDLED_PAYLOAD_ID;
+            activePayloadId = bundledId;
             activeProfile = null;
             engine.setPayloadOverride(null);
+            engine.setBundledPayloadLib(PayloadStore.bundledLibName(bundledId));
             engine.setKsudOverride(null, -1);
             engine.setKmiOverride(null);
             payloadResolved = false;
@@ -1092,7 +1112,7 @@ public final class MainActivity extends AppCompatActivity {
                 setStatusDetail("ADBsu root bridge loaded");
                 run.setVisibility(View.GONE);
                 openPackage(KSU_MANAGER_PACKAGE,
-                        "KernelSU Manager is not installed.");
+                        "Grant SU to SamSU and refresh.");
             } else if (state.bootstrap()) {
                 run.setVisibility(View.VISIBLE);
                 setStatus("Root ready", STATUS_WORKING);
@@ -1134,7 +1154,7 @@ public final class MainActivity extends AppCompatActivity {
         Intent launch = getPackageManager().getLaunchIntentForPackage(packageName);
         if (launch == null) {
             append(missingMessage);
-            setStatus("Cannot open the manager app", STATUS_NEUTRAL);
+            setStatus("Grant in KernelSU", STATUS_NEUTRAL);
             setStatusDetail(missingMessage);
             return;
         }

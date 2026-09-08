@@ -37,17 +37,10 @@ The tracefs versus physical-P0 slide route is selected at runtime per run (Shizu
 
 | Source | Devices |
 | --- | --- |
-| Bundled payload | Galaxy S25 `SM-S931B` on One UI 9 beta 2 `S931BXXUCZZI4`, kernel `6.6.127-android15-8-p33f4ffe` |
+| Bundled payloads | Galaxy S25 `SM-S931B` and Galaxy S25 Ultra `SM-S938B` on One UI 9 beta 2 (`S931BXXUCZZI4` / `S938BXXUCZZI4`), kernel `6.6.127-android15-8-p33f4ffe` — auto-selected per device |
 | Downloaded (RMG registry) | Whatever [Root My Galaxy Payloads](https://github.com/BuSung-dev/Root-My-Galaxy-Payloads) currently publishes, matched by model + kernel version — each registry payload ships with its own matching KernelSU daemon, so other devices get a complete root flow |
 
 KernelSU Manager **3.2.5** must be installed (newer managers are flagged in the status card).
-
-## Tested devices
-
-| Status | Devices |
-| --- | --- |
-| Hardware PASS | Galaxy S25 `SM-S931B` on One UI 9 beta 2 `S931BXXUCZZI4`, kernel `6.6.127-android15-8-p33f4ffe` (exploit chain, physrw, root daemon, KernelSU late-load) |
-| Hardware PASS | Galaxy S25 Ultra `SM-S938B` on firmware `BP4A.251205.006` / `S938BXXSCCZH1`, kernel `6.6.98-android15-8-p5a696e2` (via RMG registry payload) |
 
 ## Install and use
 
