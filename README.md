@@ -8,8 +8,8 @@ A KernelSU tracefs injector with Root My Galaxy Payloads (RMG) support, forked f
 
 M3Q Root was a single-device launcher for the Korean Galaxy S26 Ultra (`SM-S948N`, kernel 6.12.30). SamSU keeps the fail-closed security architecture and changes everything around it:
 
-- **Retargeted payload**: the CVE-2026-43499 route was re-derived for the Galaxy S25 (`pa1q-S931BXXUCZZHL`, kernel `6.6.127-android15-8-paa4b906`): new text offsets, self-validating derivations (boot-id `.data` slot, `nfnetlink_log` name check), and a bounded stack-writer retry budget.
-- **RMG payload compatibility**: the app matches this device against the [Root My Galaxy Payloads](https://github.com/BuSung-dev/Root-My-Galaxy-Payloads) `targets-v3.json` registry (model + kernel version), downloads the matching exploit binary, and falls back to the bundled payload when nothing matches or the device is offline.
+- **Retargeted payload**: the CVE-2026-43499 route was re-derived for the Galaxy S25 (`pa1q-S931BXXUCZZI4`, kernel `6.6.127-android15-8-p33f4ffe`): new text offsets, self-validating derivations (boot-id `.data` slot, `nfnetlink_log` name check), and a bounded stack-writer retry budget.
+- **RMG payload compatibility**: the app matches this device against the [Root My Galaxy Payloads](https://github.com/BuSung-dev/Root-My-Galaxy-Payloads) `targets-v3.json` registry (model + kernel version), downloads the matching exploit binary **and its own KernelSU daemon (ksud)**, and falls back to the bundled payload when nothing matches or the device is offline.
 - **KernelSU 3.2.5 gate**: the installed KernelSU Manager version is checked against the bundled `ksud` (3.2.5) and maintenance actions are locked on mismatch.
   
 ## Payload system and RMG compatibility
@@ -19,16 +19,17 @@ SamSU uses the Root My Galaxy Payloads registry format (`support/targets-v3.json
 1. On startup, refresh, and before a root run, the app fetches the registry once per session.
 2. `Build.MODEL` must appear in a profile's `models[]` **and** the running kernel must start with one of its `kernelVersions[]`.
 3. On a match, the profile's exploit binary is downloaded once (size-verified against the registry), staged into `/data/local/tmp` for the shell-uid helper, and used for every run.
-4. With no match — or offline — the bundled `pa1q-S931BXXUCZZHL` payload is used, so the app stays fully offline-capable.
+4. With no match — or offline — the bundled `pa1q-S931BXXUCZZI4` payload is used, so the app stays fully offline-capable.
 
 ### Manual payload selection
 
 Tap the **Payload** button in the status card to override the automatic match:
 
-- The selector lists the bundled payload plus up to 2 registry profiles whose `models[]` contain your device (kernel-matching profiles are sorted first).
+- The selector lists the bundled payload plus registry profiles whose `models[]` contain your device (kernel-matching profiles are sorted first).
 - Profiles whose kernel differs from yours are labeled **(kernel mismatch)** but can still be selected — useful when a payload is known to work across firmware builds that share a kernel.
+- The button shows **Downloading** while a payload or its ksud is being fetched; downloads are size-validated against the registry and re-fetched automatically when the upstream binary changes.
+- Hold a downloaded payload row for 1.5 seconds to remove it from the cache.
 - The choice is remembered across sessions and can be reset back to the bundled payload at any time.
-- If no registry profile matches your device, the button shows **"Payload : none for this device"**.
 
 The tracefs versus physical-P0 slide route is selected at runtime per run (Shizuku tracefs fast path first, physical fallback), so one binary per device profile covers both. The active payload id is shown on the payload button in the status card.
 
@@ -36,8 +37,8 @@ The tracefs versus physical-P0 slide route is selected at runtime per run (Shizu
 
 | Source | Devices |
 | --- | --- |
-| Bundled payload | Galaxy S25 `SM-S931B` on firmware `BP4A.251205.006` / `S931BXXUCZZHL`, kernel `6.6.127-android15-8-paa4b906` |
-| Downloaded (RMG registry) | Whatever [Root My Galaxy Payloads](https://github.com/BuSung-dev/Root-My-Galaxy-Payloads) currently publishes, matched by model + kernel version |
+| Bundled payload | Galaxy S25 `SM-S931B` on One UI 9 beta 2 `S931BXXUCZZI4`, kernel `6.6.127-android15-8-p33f4ffe` |
+| Downloaded (RMG registry) | Whatever [Root My Galaxy Payloads](https://github.com/BuSung-dev/Root-My-Galaxy-Payloads) currently publishes, matched by model + kernel version — each registry payload ships with its own matching KernelSU daemon, so other devices get a complete root flow |
 
 KernelSU Manager **3.2.5** must be installed (newer managers are flagged in the status card).
 
@@ -45,8 +46,8 @@ KernelSU Manager **3.2.5** must be installed (newer managers are flagged in the 
 
 | Status | Devices |
 | --- | --- |
-| Hardware PASS | Galaxy S25 `SM-S931B` on firmware `BP4A.251205.006` / `S931BXXUCZZHL`, kernel `6.6.127-android15-8-paa4b906` |
-| Hardware PASS | Galaxy S25 Ultra `SM-S938B` on firmware `BP4A.251205.006` / `S938BXXSCCZH1`, kernel `6.6.98-android15-8-p5a696e2` |
+| Hardware PASS | Galaxy S25 `SM-S931B` on One UI 9 beta 2 `S931BXXUCZZI4`, kernel `6.6.127-android15-8-p33f4ffe` (exploit chain, physrw, root daemon, KernelSU late-load) |
+| Hardware PASS | Galaxy S25 Ultra `SM-S938B` on firmware `BP4A.251205.006` / `S938BXXSCCZH1`, kernel `6.6.98-android15-8-p5a696e2` (via RMG registry payload) |
 
 ## Install and use
 
@@ -83,11 +84,11 @@ Windows:
 
 
 ```powershell
-# payload (from a Root-My-Galaxy-Payloads checkout containing targets/pa1q-S931BXXUCZZHL)
+# payload (from a Root-My-Galaxy-Payloads checkout containing targets/pa1q-S931BXXUCZZI4)
 port\build_windows.cmd
 # then stage it for the app
-copy repo\Root-My-Galaxy-Payloads-main\build\pa1q-S931BXXUCZZHL\cve-2026-43499-app.release.so `
-     m3q-app\exploit\build\m3q-BP4A.251205.006\bin\preload.app.so
+copy repo\Root-My-Galaxy-Payloads-main\build\pa1q-S931BXXUCZZI4\cve-2026-43499-app.release.so `
+     m3q-app\android\prebuilt\payload-pa1q-S931BXXUCZZI4.so
 
 # app
 cd m3q-app\android
@@ -106,7 +107,7 @@ exploit/vendor/root-my-galaxy/   vendored Root My Galaxy source and provenance
 docs/                            runtime and technical documentation
 ```
 
-The SamSU payload itself is built from the Root My Galaxy Payloads tree (targets/pa1q-S931BXXUCZZHL) via port/build_windows.cmd in that checkout.
+The SamSU payload itself is built from the Root My Galaxy Payloads tree (targets/pa1q-S931BXXUCZZI4) via build scripts in that checkout, and the ZZI4-exact KernelSU module/ksud pair (no-LTO build for the `p33f4ffe` kernel) lives under kernelsu/ in the same tree.
 
 Generated APKs, JNI outputs, device logs, screenshots, local paths, and research scratch files are intentionally excluded from Git history.
 
