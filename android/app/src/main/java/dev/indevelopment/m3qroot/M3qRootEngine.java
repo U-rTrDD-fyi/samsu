@@ -43,10 +43,9 @@ final class M3qRootEngine {
 
     private static final String MODEL = "SM-S931B";
     private static final String KERNEL =
-            "6.6.127-android15-8-paa4b906-abogkiS931BXXUCZZHL-4k";
+            "6.6.127-android15-8-p33f4ffe-abogkiS931BXXUCZZI4-4k";
     private static final String FINGERPRINT =
-            "samsung/pa1qxeea/pa1q:17/CP2A.260605.016/" +
-                    "S931BXXUCZZHL_OXMCZZHL:user/release-keys";
+            "S931BXXUCZZI4";
     private static final long KIMAGE_BASE = 0xffffffc080000000L;
     private static final String HELPER = "libm3qroot.so";
     private static final String ORACLE = "libm3qoracle.so";
@@ -94,7 +93,7 @@ final class M3qRootEngine {
     boolean isSupported() {
         return MODEL.equals(Build.MODEL)
                 && KERNEL.equals(System.getProperty("os.version", ""))
-                && FINGERPRINT.equals(Build.FINGERPRINT);
+                && Build.FINGERPRINT.contains(FINGERPRINT);
     }
 
     RootState checkRoot(boolean verbose) {
