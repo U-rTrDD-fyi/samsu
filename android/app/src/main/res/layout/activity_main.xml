@@ -43,13 +43,35 @@
                         android:textStyle="bold" />
 
                     <TextView
+                        android:id="@+id/version_chip"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginStart="8dp"
                         android:layout_marginBottom="3dp"
+                        android:background="@drawable/pill_version"
+                        android:paddingStart="8dp"
+                        android:paddingTop="2dp"
+                        android:paddingEnd="8dp"
+                        android:paddingBottom="2dp"
                         android:text="@string/version_label"
-                        android:textColor="?attr/colorOnSurfaceVariant"
-                        android:textSize="11sp" />
+                        android:textColor="@color/m3q_on_surface_variant"
+                        android:textSize="10sp" />
+
+                    <TextView
+                        android:id="@+id/update_chip"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="6dp"
+                        android:layout_marginBottom="3dp"
+                        android:background="@drawable/pill_update"
+                        android:paddingStart="8dp"
+                        android:paddingTop="2dp"
+                        android:paddingEnd="8dp"
+                        android:paddingBottom="2dp"
+                        android:text="Update"
+                        android:textColor="@color/m3q_success"
+                        android:textSize="10sp"
+                        android:visibility="gone" />
                 </LinearLayout>
 
                 <TextView

@@ -77,6 +77,8 @@ public final class MainActivity extends AppCompatActivity {
     private TextView dashboard;
     private MaterialButton payloadButton;
     private TextView subtitleText;
+    private TextView versionChip;
+    private TextView updateChip;
     private TextView log;
     private MaterialButton run;
     private MaterialButton reapplyModules;
@@ -145,6 +147,10 @@ public final class MainActivity extends AppCompatActivity {
         payloadButton = findViewById(R.id.payload_button);
         subtitleText = findViewById(R.id.app_subtitle);
         subtitleText.setText(deviceMarketingLabel());
+        versionChip = findViewById(R.id.version_chip);
+        updateChip = findViewById(R.id.update_chip);
+        versionChip.setText(appVersion());
+        worker.execute(this::checkForAppUpdate);
         log = findViewById(R.id.log);
         log.setMovementMethod(new ScrollingMovementMethod());
         run = findViewById(R.id.run);
@@ -218,6 +224,7 @@ public final class MainActivity extends AppCompatActivity {
     }
 
     private volatile PayloadStore.Profile activeProfile;
+    private volatile boolean payloadDownloading;
 
     /** Bundled-target check, relaxed when a registry payload matches this device. */
     private boolean deviceSupported() {
@@ -280,7 +287,9 @@ public final class MainActivity extends AppCompatActivity {
                     + "attempting anyway.");
         }
         File cached = PayloadStore.cachedPayload(this, match.payloadId);
-        if (cached.isFile()) {
+        boolean exploitFresh = cached.isFile()
+                && (match.exploitSize <= 0 || cached.length() == match.exploitSize);
+        if (exploitFresh) {
             activePayloadId = match.payloadId;
             activeProfile = match;
             engine.setPayloadOverride(cached);
@@ -288,7 +297,15 @@ public final class MainActivity extends AppCompatActivity {
             append("Using cached payload " + match.payloadId + ".");
             return;
         }
+        if (cached.isFile()) {
+            append("Cached payload " + match.payloadId + " is stale ("
+                    + cached.length() + " bytes, expected "
+                    + match.exploitSize + "); re-downloading.");
+            cached.delete();
+        }
         append("Downloading payload " + match.payloadId + " ...");
+        payloadDownloading = true;
+        ui.post(() -> payloadButton.setText(buildPayloadButtonLabel()));
         try {
             File file = PayloadStore.downloadExploit(this, match);
             activePayloadId = match.payloadId;
@@ -305,6 +322,9 @@ public final class MainActivity extends AppCompatActivity {
             engine.setPayloadOverride(null);
             engine.setKsudOverride(null, -1);
             engine.setKmiOverride(null);
+        } finally {
+            payloadDownloading = false;
+            ui.post(() -> payloadButton.setText(buildPayloadButtonLabel()));
         }
     }
 
@@ -315,24 +335,39 @@ public final class MainActivity extends AppCompatActivity {
             engine.setKmiOverride(null);
             return;
         }
-        try {
-            File cachedKsud = PayloadStore.cachedKsud(this, match.payloadId);
-            if (!cachedKsud.isFile()) {
-                append("Downloading KernelSU daemon " + match.payloadId + " ...");
-                cachedKsud = PayloadStore.downloadKsud(this, match);
-                append("KernelSU daemon downloaded: " + cachedKsud.getName()
-                        + " (" + cachedKsud.length() + " bytes)");
-            } else {
-                append("Using cached KernelSU daemon " + match.payloadId + ".");
+        File cachedKsud = PayloadStore.cachedKsud(this, match.payloadId);
+        boolean ksudFresh = cachedKsud.isFile()
+                && (match.ksudSize <= 0 || cachedKsud.length() == match.ksudSize);
+        if (!ksudFresh) {
+            if (cachedKsud.isFile()) {
+                append("Cached KernelSU daemon " + match.payloadId
+                        + " is stale (" + cachedKsud.length() + " bytes, expected "
+                        + match.ksudSize + "); re-downloading.");
+                cachedKsud.delete();
             }
-            engine.setKsudOverride(cachedKsud, match.ksudSize);
-            engine.setKmiOverride(match.kmi);
-        } catch (Exception error) {
-            append("KernelSU daemon download failed: " + error.getMessage()
-                    + "; using bundled KSU module.");
-            engine.setKsudOverride(null, -1);
-            engine.setKmiOverride(null);
+            append("Downloading KernelSU daemon " + match.payloadId + " ...");
+            payloadDownloading = true;
+            ui.post(() -> payloadButton.setText(buildPayloadButtonLabel()));
+            try {
+                cachedKsud = PayloadStore.downloadKsud(this, match);
+            } catch (Exception error) {
+                append("KernelSU daemon download failed: " + error.getMessage()
+                        + "; using bundled KSU module.");
+                payloadDownloading = false;
+                ui.post(() -> payloadButton.setText(buildPayloadButtonLabel()));
+                engine.setKsudOverride(null, -1);
+                engine.setKmiOverride(null);
+                return;
+            }
+            payloadDownloading = false;
+            ui.post(() -> payloadButton.setText(buildPayloadButtonLabel()));
+            append("KernelSU daemon downloaded: " + cachedKsud.getName()
+                    + " (" + cachedKsud.length() + " bytes)");
+        } else {
+            append("Using cached KernelSU daemon " + match.payloadId + ".");
         }
+        engine.setKsudOverride(cachedKsud, match.ksudSize);
+        engine.setKmiOverride(match.kmi);
     }
 
     private void useBundledPayload(String manualId) {
@@ -363,7 +398,9 @@ public final class MainActivity extends AppCompatActivity {
         String prefix = "Payload selected : ";
         String value = activePayloadId;
 
-        if (!deviceSupported()) {
+        if (payloadDownloading) {
+            value = "Downloading";
+        } else if (!deviceSupported()) {
             prefix = "Payload : ";
             value = "none for this device";
         }
@@ -413,15 +450,52 @@ public final class MainActivity extends AppCompatActivity {
         list.setOrientation(LinearLayout.VERTICAL);
         int pad = (int) (12 * density);
         list.setPadding(pad, pad / 2, pad, pad / 2);
+        TextView dialogTitle = new TextView(this);
+        dialogTitle.setText("Select payload");
+        dialogTitle.setTextSize(TypedValue.COMPLEX_UNIT_SP, 17);
+        dialogTitle.setTypeface(null, Typeface.BOLD);
+        dialogTitle.setTextColor(0xFFEDEDED);
+        int titlePad = (int) (14 * density);
+        dialogTitle.setPadding(titlePad, titlePad, titlePad, (int) (4 * density));
+        list.addView(dialogTitle, 0);
+        TextView holdHint = new TextView(this);
+        holdHint.setText("Hold payload to remove it from cache");
+        holdHint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
+        holdHint.setTextColor(0xFF8A8A8A);
+        holdHint.setPadding(titlePad, 0, titlePad, (int) (6 * density));
+        list.addView(holdHint, 1);
+        LinearLayout rowsBox = new LinearLayout(this);
+        rowsBox.setOrientation(LinearLayout.VERTICAL);
+        final int maxRowsHeight = (int) (getResources().getDisplayMetrics().heightPixels * 0.45f);
+        android.widget.ScrollView rowsScroll = new android.widget.ScrollView(this) {
+            @Override
+            protected void onMeasure(int widthSpec, int heightSpec) {
+                super.onMeasure(widthSpec, heightSpec);
+                if (getMeasuredHeight() > maxRowsHeight) {
+                    setMeasuredDimension(getMeasuredWidth(), maxRowsHeight);
+                }
+            }
+        };
+        rowsScroll.addView(rowsBox, new LinearLayout.LayoutParams(
+                android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                android.view.ViewGroup.LayoutParams.WRAP_CONTENT));
+        list.addView(rowsScroll);
         MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(this)
-                .setTitle("Select payload")
                 .setView(list);
         androidx.appcompat.app.AlertDialog dialog = builder.show();
         android.view.Window popupWindow = dialog.getWindow();
         if (popupWindow != null) {
+            android.graphics.drawable.GradientDrawable popupBackground =
+                    new android.graphics.drawable.GradientDrawable();
+            popupBackground.setColor(0xFF141414);
+            popupBackground.setCornerRadius(26 * density);
+            popupBackground.setStroke((int) (1 * density), 0xFF6E6E6E);
+            popupWindow.setBackgroundDrawable(popupBackground);
             android.view.WindowManager.LayoutParams popupParams = popupWindow.getAttributes();
             popupParams.gravity = android.view.Gravity.TOP | android.view.Gravity.CENTER_HORIZONTAL;
-            popupParams.y = (int) (150 * getResources().getDisplayMetrics().density);
+            popupParams.y = (int) (210 * getResources().getDisplayMetrics().density);
+            popupParams.dimAmount = 0.72f;
+            popupParams.flags |= android.view.WindowManager.LayoutParams.FLAG_DIM_BEHIND;
             popupWindow.setAttributes(popupParams);
         }
         for (int index = 0; index < options.size(); index++) {
@@ -429,33 +503,154 @@ public final class MainActivity extends AppCompatActivity {
             boolean selected = option.payloadId.equals(
                     manualId.isEmpty() ? PayloadStore.BUNDLED_PAYLOAD_ID : manualId);
             boolean bundled = option.payloadId.equals(PayloadStore.BUNDLED_PAYLOAD_ID);
-            TextView row = new TextView(this);
-            row.setText((selected ? "Selected:  " : "") + (bundled ? "Bundled: " : "")
+            boolean downloaded = bundled
+                    || PayloadStore.cachedPayload(this, option.payloadId).isFile();
+            com.google.android.material.button.MaterialButton row =
+                    new com.google.android.material.button.MaterialButton(this,
+                            null,
+                            com.google.android.material.R.attr.materialButtonOutlinedStyle);
+            row.setText((bundled ? "Bundled: " : "")
                     + option.payloadId
                     + (option.displayName.isEmpty() || bundled
                             ? "" : "  -  " + option.displayName)
                     + (bundled || PayloadStore.kernelMatches(option)
                             ? "" : "  (kernel mismatch)"));
-            row.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
-            row.setTypeface(null, selected ? Typeface.BOLD : Typeface.NORMAL);
-            row.setTextColor(selected ? 0xFFFFFFFF : 0xFFB9B9B9);
+            row.setAllCaps(false);
+            row.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+            row.setSingleLine(true);
+            row.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            row.setInsetTop(0);
+            row.setInsetBottom(0);
+            LinearLayout.LayoutParams rowParams = new LinearLayout.LayoutParams(
+                    android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                    (int) (46 * density));
+            rowParams.setMargins(0, (int) (2 * density), 0, 0);
+            row.setLayoutParams(rowParams);
+            if (selected && downloaded) {
+                row.setBackgroundTintList(
+                        android.content.res.ColorStateList.valueOf(0xFF333333));
+                row.setStrokeColor(
+                        android.content.res.ColorStateList.valueOf(0xFF6E6E6E));
+                row.setTextColor(0xFFFFFFFF);
+            } else if (downloaded) {
+                row.setBackgroundTintList(
+                        android.content.res.ColorStateList.valueOf(0x00000000));
+                row.setStrokeColor(
+                        android.content.res.ColorStateList.valueOf(0xFF4D4D4D));
+                row.setTextColor(0xFFDDDDDD);
+            } else {
+                row.setBackgroundTintList(
+                        android.content.res.ColorStateList.valueOf(0x00000000));
+                row.setStrokeColor(
+                        android.content.res.ColorStateList.valueOf(0xFF333333));
+                row.setTextColor(0x66FFFFFF);
+            }
+            row.setStrokeWidth((int) (1 * density));
             int padV = (int) (11 * density);
             row.setPadding(pad, padV, pad, padV);
-            row.setOnClickListener(v -> {
-                dialog.dismiss();
-                prefs.edit().putString("manual_payload_id",
-                        PayloadStore.BUNDLED_PAYLOAD_ID.equals(option.payloadId)
-                                ? "" : option.payloadId).apply();
-                payloadResolved = false;
-                append("Payload selection: " + option.payloadId);
-                worker.execute(() -> {
-                    resolvePayload();
-                    refreshRootState();
-                });
+            File cachedPayloadFile =
+                    PayloadStore.cachedPayload(this, option.payloadId);
+            boolean deletable = !bundled && cachedPayloadFile.isFile();
+            android.widget.ProgressBar holdProgress = new android.widget.ProgressBar(
+                    this, null, android.R.attr.progressBarStyleHorizontal);
+            holdProgress.setMax(100);
+            holdProgress.setProgress(0);
+            LinearLayout.LayoutParams holdParams = new LinearLayout.LayoutParams(
+                    android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                    (int) (8 * density));
+            holdParams.setMargins(pad, 0, pad, (int) (4 * density));
+            holdProgress.setLayoutParams(holdParams);
+            holdProgress.setVisibility(View.INVISIBLE);
+            final boolean[] holdCompleted = {false};
+            final long[] holdStart = {0};
+            final Handler holdHandler = new Handler(Looper.getMainLooper());
+            final Runnable[] holdTick = {null};
+            rowsBox.addView(row);
+            rowsBox.addView(holdProgress);
+            row.setOnTouchListener((v, event) -> {
+                if (!deletable) {
+                    if (event.getAction() == android.view.MotionEvent.ACTION_UP) {
+                        selectPayloadRow(option, prefs, dialog);
+                    }
+                    return true;
+                }
+                if (event.getAction() == android.view.MotionEvent.ACTION_DOWN) {
+                    holdCompleted[0] = false;
+                    holdStart[0] = android.os.SystemClock.elapsedRealtime();
+                    holdProgress.setProgress(0);
+                    holdProgress.setVisibility(View.VISIBLE);
+                    holdTick[0] = new Runnable() {
+                        @Override
+                        public void run() {
+                            long elapsed = android.os.SystemClock.elapsedRealtime()
+                                    - holdStart[0];
+                            int percent = (int) (elapsed * 100 / 1500);
+                            if (percent >= 100) {
+                                holdCompleted[0] = true;
+                                holdProgress.setProgress(100);
+                                removeCachedPayload(option.payloadId);
+                                dialog.dismiss();
+                                ui.post(() -> showPayloadDialog());
+                                return;
+                            }
+                            holdProgress.setProgress(percent);
+                            holdHandler.postDelayed(this, 50);
+                        }
+                    };
+                    holdHandler.postDelayed(holdTick[0], 50);
+                    return true;
+                }
+                if (event.getAction() == android.view.MotionEvent.ACTION_UP
+                        || event.getAction() == android.view.MotionEvent.ACTION_CANCEL) {
+                    holdHandler.removeCallbacks(holdTick[0]);
+                    holdProgress.setProgress(0);
+                    holdProgress.setVisibility(View.INVISIBLE);
+                    if (!holdCompleted[0]
+                            && event.getAction() == android.view.MotionEvent.ACTION_UP) {
+                        selectPayloadRow(option, prefs, dialog);
+                    }
+                }
+                return true;
             });
-            list.addView(row);
         }
         dialog.show();
+    }
+
+    private void selectPayloadRow(PayloadStore.Profile option,
+            SharedPreferences prefs, androidx.appcompat.app.AlertDialog dialog) {
+        dialog.dismiss();
+        prefs.edit().putString("manual_payload_id",
+                PayloadStore.BUNDLED_PAYLOAD_ID.equals(option.payloadId)
+                        ? "" : option.payloadId).apply();
+        payloadResolved = false;
+        append("Payload selection: " + option.payloadId);
+        worker.execute(() -> {
+            resolvePayload();
+            refreshRootState();
+        });
+    }
+
+    private void removeCachedPayload(String payloadId) {
+        File exploit = PayloadStore.cachedPayload(this, payloadId);
+        File ksud = PayloadStore.cachedKsud(this, payloadId);
+        boolean removedExploit = !exploit.isFile() || exploit.delete();
+        boolean removedKsud = !ksud.isFile() || ksud.delete();
+        append("Removed cached payload " + payloadId
+                + (removedExploit && removedKsud ? "." : " (partial)."));
+        if (activePayloadId != null && activePayloadId.equals(payloadId)) {
+            getSharedPreferences("samsu_payload", MODE_PRIVATE)
+                    .edit().putString("manual_payload_id", "").apply();
+            activePayloadId = PayloadStore.BUNDLED_PAYLOAD_ID;
+            activeProfile = null;
+            engine.setPayloadOverride(null);
+            engine.setKsudOverride(null, -1);
+            engine.setKmiOverride(null);
+            payloadResolved = false;
+            worker.execute(() -> {
+                resolvePayload();
+                refreshRootState();
+            });
+        }
     }
 
     private void toggleDiagnostics() {
@@ -579,7 +774,7 @@ public final class MainActivity extends AppCompatActivity {
             abortPendingRun("Boot state unreadable; refused the kernel run.");
             return;
         }
-        setStatus("Activating temporary root", STATUS_WORKING);
+        setStatus("Activating via Shizuku", STATUS_WORKING);
         setStatusDetail(useShizuku
                 ? "Checking safety conditions."
                 : "Verifies device security state, then applies temporary root.");
@@ -781,7 +976,7 @@ public final class MainActivity extends AppCompatActivity {
             run.setText(R.string.run_reboot_check);
             run.setEnabled(false);
         } else if (state.ready()) {
-            setStatus("Temporary root active", STATUS_SUCCESS);
+            setStatus("Rooted", STATUS_SUCCESS);
             setStatusDetail("ADBsu root bridge loaded");
             run.setVisibility(View.GONE);
         } else if (state.bootstrap()) {
@@ -799,7 +994,7 @@ public final class MainActivity extends AppCompatActivity {
             run.setEnabled(true);
         } else {
             run.setVisibility(View.VISIBLE);
-            setStatus("Temporary root inactive", STATUS_NEUTRAL);
+            setStatus("Unrooted", STATUS_NEUTRAL);
             setStatusDetail(deviceSupported()
                     ? "Device verified - Wait 180s after boot"
                     : "Wait 180s after boot");
@@ -837,6 +1032,41 @@ public final class MainActivity extends AppCompatActivity {
         }
     }
 
+    private String appVersion() {
+        try {
+            return getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
+        } catch (Exception e) {
+            return "?";
+        }
+    }
+
+    private void checkForAppUpdate() {
+        try {
+            java.net.HttpURLConnection conn = (java.net.HttpURLConnection)
+                    new java.net.URL(
+                            "https://api.github.com/repos/mitschud/samsu/releases/latest")
+                            .openConnection();
+            conn.setConnectTimeout(8000);
+            conn.setReadTimeout(8000);
+            conn.setRequestProperty("Accept", "application/vnd.github+json");
+            conn.setRequestProperty("User-Agent", "SamSU");
+            if (conn.getResponseCode() != 200) return;
+            java.io.BufferedReader reader = new java.io.BufferedReader(
+                    new java.io.InputStreamReader(conn.getInputStream()));
+            StringBuilder body = new StringBuilder();
+            String line;
+            while ((line = reader.readLine()) != null) body.append(line);
+            reader.close();
+            String tag = new org.json.JSONObject(body.toString()).optString("tag_name", "");
+            if (tag.isEmpty()) return;
+            if (tag.replaceFirst("^[vV]", "").trim()
+                    .equalsIgnoreCase(appVersion())) return;
+            ui.post(() -> updateChip.setVisibility(View.VISIBLE));
+        } catch (Exception ignored) {
+            /* Offline, rate-limited, or API hiccup: stay silent, keep the plain chip. */
+        }
+    }
+
     private static String normalizeKsuVersion(String versionName) {
         if (versionName == null) return "unknown";
         return versionName.replaceFirst("^[vV]", "").trim();
@@ -868,7 +1098,7 @@ public final class MainActivity extends AppCompatActivity {
             getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
             statusRefresh.setEnabled(true);
             if (state.ready()) {
-                setStatus("Temporary root active", STATUS_SUCCESS);
+                setStatus("Rooted", STATUS_SUCCESS);
                 setStatusDetail("ADBsu root bridge loaded");
                 run.setVisibility(View.GONE);
                 openPackage(KSU_MANAGER_PACKAGE,
