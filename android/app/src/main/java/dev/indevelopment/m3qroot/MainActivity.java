@@ -1088,7 +1088,7 @@ public final class MainActivity extends AppCompatActivity {
                 : "Clean";
                 dashboard.setText(Html.fromHtml(getString(R.string.dashboard_format,
                 ksuManagerLabel(), shizuku, attempted), Html.FROM_HTML_MODE_LEGACY));
-        boolean tileOk = state.ready() && shizukuRunning && shizukuGranted;
+        boolean tileOk = state.ready();
         statusTile.setBackgroundResource(tileOk ? R.drawable.tile_ok : R.drawable.tile_bad);
         statusIcon.setImageResource(tileOk ? R.drawable.ic_sign_check : R.drawable.ic_sign_bad);
         payloadButton.setText(buildPayloadButtonLabel());
