@@ -551,22 +551,10 @@ public final class MainActivity extends AppCompatActivity {
             File cachedPayloadFile =
                     PayloadStore.cachedPayload(this, option.payloadId);
             boolean deletable = !bundled && cachedPayloadFile.isFile();
-            android.widget.ProgressBar holdProgress = new android.widget.ProgressBar(
-                    this, null, android.R.attr.progressBarStyleHorizontal);
-            holdProgress.setMax(100);
-            holdProgress.setProgress(0);
-            LinearLayout.LayoutParams holdParams = new LinearLayout.LayoutParams(
-                    android.view.ViewGroup.LayoutParams.MATCH_PARENT,
-                    (int) (8 * density));
-            holdParams.setMargins(pad, 0, pad, (int) (4 * density));
-            holdProgress.setLayoutParams(holdParams);
-            holdProgress.setVisibility(View.INVISIBLE);
             final boolean[] holdCompleted = {false};
-            final long[] holdStart = {0};
             final Handler holdHandler = new Handler(Looper.getMainLooper());
-            final Runnable[] holdTick = {null};
+            final Runnable[] holdFire = {null};
             rowsBox.addView(row);
-            rowsBox.addView(holdProgress);
             row.setOnTouchListener((v, event) -> {
                 if (!deletable) {
                     if (event.getAction() == android.view.MotionEvent.ACTION_UP) {
@@ -576,35 +564,21 @@ public final class MainActivity extends AppCompatActivity {
                 }
                 if (event.getAction() == android.view.MotionEvent.ACTION_DOWN) {
                     holdCompleted[0] = false;
-                    holdStart[0] = android.os.SystemClock.elapsedRealtime();
-                    holdProgress.setProgress(0);
-                    holdProgress.setVisibility(View.VISIBLE);
-                    holdTick[0] = new Runnable() {
-                        @Override
-                        public void run() {
-                            long elapsed = android.os.SystemClock.elapsedRealtime()
-                                    - holdStart[0];
-                            int percent = (int) (elapsed * 100 / 1500);
-                            if (percent >= 100) {
-                                holdCompleted[0] = true;
-                                holdProgress.setProgress(100);
-                                removeCachedPayload(option.payloadId);
-                                dialog.dismiss();
-                                ui.post(() -> showPayloadDialog());
-                                return;
-                            }
-                            holdProgress.setProgress(percent);
-                            holdHandler.postDelayed(this, 50);
-                        }
+                    holdFire[0] = () -> {
+                        holdCompleted[0] = true;
+                        row.animate().alpha(1f).setDuration(150).start();
+                        removeCachedPayload(option.payloadId);
+                        dialog.dismiss();
+                        ui.post(() -> showPayloadDialog());
                     };
-                    holdHandler.postDelayed(holdTick[0], 50);
+                    row.animate().alpha(0.35f).setDuration(1500).start();
+                    holdHandler.postDelayed(holdFire[0], 1500);
                     return true;
                 }
                 if (event.getAction() == android.view.MotionEvent.ACTION_UP
                         || event.getAction() == android.view.MotionEvent.ACTION_CANCEL) {
-                    holdHandler.removeCallbacks(holdTick[0]);
-                    holdProgress.setProgress(0);
-                    holdProgress.setVisibility(View.INVISIBLE);
+                    holdHandler.removeCallbacks(holdFire[0]);
+                    row.animate().alpha(1f).setDuration(150).start();
                     if (!holdCompleted[0]
                             && event.getAction() == android.view.MotionEvent.ACTION_UP) {
                         selectPayloadRow(option, prefs, dialog);
