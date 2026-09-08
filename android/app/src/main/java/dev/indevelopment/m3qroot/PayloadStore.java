@@ -26,6 +26,7 @@ import java.util.List;
  */
 final class PayloadStore {
     static final String BUNDLED_PAYLOAD_ID = "pa1q-S931BXXUCZZI4";
+    static final String BUNDLED_KMI = "android15-6.6";
     private static final String REGISTRY_URL =
             "https://raw.githubusercontent.com/BuSung-dev/Root-My-Galaxy-Payloads/main/support/targets-v3.json";
     private static final String RAW_BASE =
@@ -38,15 +39,28 @@ final class PayloadStore {
         final List<String> kernelVersions;
         final String exploitUrl;
         final long exploitSize;
+        final String ksudUrl;
+        final long ksudSize;
+        final String kmi;
 
         Profile(String payloadId, String displayName, List<String> models,
                 List<String> kernelVersions, String exploitUrl, long exploitSize) {
+            this(payloadId, displayName, models, kernelVersions, exploitUrl,
+                    exploitSize, "", -1, BUNDLED_KMI);
+        }
+
+        Profile(String payloadId, String displayName, List<String> models,
+                List<String> kernelVersions, String exploitUrl, long exploitSize,
+                String ksudUrl, long ksudSize, String kmi) {
             this.payloadId = payloadId;
             this.displayName = displayName;
             this.models = models;
             this.kernelVersions = kernelVersions;
             this.exploitUrl = exploitUrl;
             this.exploitSize = exploitSize;
+            this.ksudUrl = ksudUrl;
+            this.ksudSize = ksudSize;
+            this.kmi = kmi;
         }
     }
 
@@ -79,13 +93,19 @@ final class PayloadStore {
                 for (int i = 0; i < payloads.length(); i++) {
                     JSONObject entry = payloads.getJSONObject(i);
                     JSONObject exploit = entry.optJSONObject("exploit");
+                    JSONObject kernelsu = entry.optJSONObject("kernelsu");
+                    List<String> kernels =
+                            jsonArray(entry.optJSONArray("kernelVersions"));
                     profiles.add(new Profile(
                             entry.getString("payloadId"),
                             entry.optString("displayName", ""),
                             jsonArray(entry.getJSONArray("models")),
-                            jsonArray(entry.optJSONArray("kernelVersions")),
+                            kernels,
                             exploit == null ? "" : exploit.optString("url", ""),
-                            exploit == null ? -1 : exploit.optLong("size", -1)));
+                            exploit == null ? -1 : exploit.optLong("size", -1),
+                            kernelsu == null ? "" : kernelsu.optString("url", ""),
+                            kernelsu == null ? -1 : kernelsu.optLong("size", -1),
+                            kmiFor(kernels)));
                 }
             } catch (org.json.JSONException error) {
                 throw new IOException("registry parse error: " + error.getMessage());
@@ -115,6 +135,63 @@ final class PayloadStore {
         kernels.add("6.6.127");
         return new Profile(BUNDLED_PAYLOAD_ID,
                 "Galaxy S25 | Kernel 6.6.127 (One UI 9 beta 2, bundled)", models,kernels, "", -1);
+    }
+
+    /** GKI KMI string for a kernel version, e.g. "6.1.157" -> "android14-6.1". */
+    static String kmiFor(List<String> kernelVersions) {
+        String version = kernelVersions == null || kernelVersions.isEmpty()
+                ? "" : kernelVersions.get(0);
+        if (version.startsWith("6.6.")) return "android15-6.6";
+        if (version.startsWith("6.1.")) return "android14-6.1";
+        if (version.startsWith("5.15.")) return "android13-5.15";
+        if (version.startsWith("5.10.")) return "android12-5.10";
+        return BUNDLED_KMI;
+    }
+
+    static File cachedKsud(Context context, String payloadId) {
+        return new File(context.getFilesDir(), "ksud-" + payloadId + ".bin");
+    }
+
+    static File downloadKsud(Context context, Profile profile)
+            throws IOException {
+        if (profile.ksudUrl == null || profile.ksudUrl.isEmpty()) {
+            throw new IOException("profile has no KernelSU daemon URL");
+        }
+        URL url = new URL(profile.ksudUrl.startsWith("http")
+                ? profile.ksudUrl : RAW_BASE + profile.ksudUrl);
+        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+        connection.setConnectTimeout(10_000);
+        connection.setReadTimeout(30_000);
+        try {
+            int code = connection.getResponseCode();
+            if (code != 200) throw new IOException("ksud HTTP " + code);
+            File target = cachedKsud(context, profile.payloadId);
+            File temp = new File(target.getAbsolutePath() + ".part");
+            long total;
+            try (InputStream in = connection.getInputStream();
+                 FileOutputStream out = new FileOutputStream(temp)) {
+                byte[] buffer = new byte[16 * 1024];
+                int read;
+                total = 0;
+                while ((read = in.read(buffer)) != -1) {
+                    total += read;
+                    out.write(buffer, 0, read);
+                }
+            }
+            if (profile.ksudSize > 0 && total != profile.ksudSize) {
+                temp.delete();
+                throw new IOException("size mismatch: got " + total
+                        + " bytes, expected " + profile.ksudSize);
+            }
+            if (!temp.renameTo(target)) {
+                if (!target.delete() || !temp.renameTo(target)) {
+                    throw new IOException("could not finalize ksud file");
+                }
+            }
+            return target;
+        } finally {
+            connection.disconnect();
+        }
     }
 
     /** Kernel-version tolerance check against the running kernel. */

@@ -251,6 +251,8 @@ public final class MainActivity extends AppCompatActivity {
                 activePayloadId = PayloadStore.BUNDLED_PAYLOAD_ID;
                 activeProfile = null;
                 engine.setPayloadOverride(null);
+                engine.setKsudOverride(null, -1);
+                engine.setKmiOverride(null);
                 return;
             }
             if (match != null) {
@@ -269,6 +271,8 @@ public final class MainActivity extends AppCompatActivity {
                     + PayloadStore.BUNDLED_PAYLOAD_ID + ".");
             activePayloadId = PayloadStore.BUNDLED_PAYLOAD_ID;
             activeProfile = null;
+            engine.setKsudOverride(null, -1);
+            engine.setKmiOverride(null);
             return;
         }
         if (kernelMismatch) {
@@ -280,6 +284,7 @@ public final class MainActivity extends AppCompatActivity {
             activePayloadId = match.payloadId;
             activeProfile = match;
             engine.setPayloadOverride(cached);
+            applyRegistryKsud(match);
             append("Using cached payload " + match.payloadId + ".");
             return;
         }
@@ -289,6 +294,7 @@ public final class MainActivity extends AppCompatActivity {
             activePayloadId = match.payloadId;
             activeProfile = match;
             engine.setPayloadOverride(file);
+            applyRegistryKsud(match);
             append("Payload downloaded: " + file.getName()
                     + " (" + file.length() + " bytes)");
         } catch (Exception error) {
@@ -296,6 +302,36 @@ public final class MainActivity extends AppCompatActivity {
             append("Using bundled payload " + PayloadStore.BUNDLED_PAYLOAD_ID + ".");
             activePayloadId = PayloadStore.BUNDLED_PAYLOAD_ID;
             activeProfile = null;
+            engine.setPayloadOverride(null);
+            engine.setKsudOverride(null, -1);
+            engine.setKmiOverride(null);
+        }
+    }
+
+    /** Registry payloads ship their own KSU build; stage it for late-load. */
+    private void applyRegistryKsud(PayloadStore.Profile match) {
+        if (match.ksudUrl == null || match.ksudUrl.isEmpty()) {
+            engine.setKsudOverride(null, -1);
+            engine.setKmiOverride(null);
+            return;
+        }
+        try {
+            File cachedKsud = PayloadStore.cachedKsud(this, match.payloadId);
+            if (!cachedKsud.isFile()) {
+                append("Downloading KernelSU daemon " + match.payloadId + " ...");
+                cachedKsud = PayloadStore.downloadKsud(this, match);
+                append("KernelSU daemon downloaded: " + cachedKsud.getName()
+                        + " (" + cachedKsud.length() + " bytes)");
+            } else {
+                append("Using cached KernelSU daemon " + match.payloadId + ".");
+            }
+            engine.setKsudOverride(cachedKsud, match.ksudSize);
+            engine.setKmiOverride(match.kmi);
+        } catch (Exception error) {
+            append("KernelSU daemon download failed: " + error.getMessage()
+                    + "; using bundled KSU module.");
+            engine.setKsudOverride(null, -1);
+            engine.setKmiOverride(null);
         }
     }
 
@@ -309,12 +345,18 @@ public final class MainActivity extends AppCompatActivity {
                     java.util.Arrays.asList(PayloadStore.deviceModel()),
                     new java.util.ArrayList<>(), "", -1);
             engine.setPayloadOverride(cached);
+            File cachedKsud = PayloadStore.cachedKsud(this, manualId);
+            if (cachedKsud.isFile()) {
+                engine.setKsudOverride(cachedKsud, -1);
+            }
             append("Using cached payload " + manualId + ".");
             return;
         }
         append("Using bundled payload " + PayloadStore.BUNDLED_PAYLOAD_ID + ".");
         activePayloadId = PayloadStore.BUNDLED_PAYLOAD_ID;
         activeProfile = null;
+        engine.setKsudOverride(null, -1);
+        engine.setKmiOverride(null);
     }
 
     private CharSequence buildPayloadButtonLabel() {
@@ -539,7 +581,7 @@ public final class MainActivity extends AppCompatActivity {
         }
         setStatus("Activating temporary root", STATUS_WORKING);
         setStatusDetail(useShizuku
-                ? "Checking safety conditions via the Shizuku connection."
+                ? "Checking safety conditions."
                 : "Verifies device security state, then applies temporary root.");
         worker.execute(() -> {
             int code = engine.runFreshRoot(useShizuku);

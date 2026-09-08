@@ -164,7 +164,7 @@ final class M3qRootEngine {
     int runFreshRoot(boolean useShizuku) {
         File helper = nativeFile(HELPER);
         File payload = activePayload();
-        File ksud = nativeFile(KSUD);
+        File ksud = activeKsud();
         if (!helper.isFile() || !payload.isFile() || !ksud.isFile()) {
             log("Required native files not found in APK.");
             return 126;
@@ -192,11 +192,11 @@ final class M3qRootEngine {
     }
 
     int activateKernelSu() {
-        return activateKernelSu(nativeFile(HELPER), nativeFile(KSUD), true);
+        return activateKernelSu(nativeFile(HELPER), activeKsud(), true);
     }
 
     int reapplyKernelSuModules() {
-        File ksud = nativeFile(KSUD);
+        File ksud = activeKsud();
         if (!ksud.isFile()) {
             log("KernelSU binary not found in APK.");
             return 126;
@@ -230,7 +230,7 @@ final class M3qRootEngine {
                 + "exit 0\n"
                 + "M3Q_MODULE_RELOAD_HOOK\n"
                 + "chmod 0755 \"$hook\"\n"
-                + "\"$ksud\" late-load --kmi android15-6.6 --allow-shell --package-name "
+                + "\"$ksud\" late-load --kmi " + activeKmi() + " --allow-shell --package-name "
                 + KSU_MANAGER_PACKAGE + "\n"
                 + "i=0\n"
                 + "while [ \"$i\" -lt 120 ]; do\n"
@@ -260,7 +260,7 @@ final class M3qRootEngine {
     }
 
     int restartZygote() {
-        File ksud = nativeFile(KSUD);
+        File ksud = activeKsud();
         if (!ksud.isFile()) {
             log("KernelSU binary not found in APK.");
             return 126;
@@ -325,7 +325,7 @@ final class M3qRootEngine {
             log("Shizuku is not running as shell/root UID; refusing to run.");
             return 126;
         }
-        status("Activating temporary root via Shizuku", STATUS_WORKING);
+        status("Activating via Shizuku", STATUS_WORKING);
         log("1/1: running root-single via the shell tracefs KASLR gate");
         Map<String, String> env = new HashMap<>();
         env.put("HOME", "/data/local/tmp");
@@ -378,18 +378,26 @@ final class M3qRootEngine {
             return 126;
         }
 
-        status("Verifying KernelSU configuration", STATUS_WORKING);
+        status("Verifying KernelSU", STATUS_WORKING);
         String source = shellQuote(ksud.getAbsolutePath());
         String loader = shellQuote(KSU_LOADER_PATH);
         String stage = shellQuote(KSU_STAGE_PATH);
+        boolean bundledKsud = ksudIsBundled();
+        String sizeGuard = bundledKsud ? "" :
+                "test \"$(stat -c %s " + source + ")\" = "
+                        + ksudOverrideSize + "; ";
+        String hashTests = bundledKsud
+                ? "test \"$h1\" = " + KSUD_SHA256 + "; " +
+                  "test \"$h2\" = " + KSUD_SHA256 + "; "
+                : "";
         String command = "set -eu; umask 022; mkdir -p /data/adb; " +
+                sizeGuard +
                 "cp " + source + " " + loader + "; " +
                 "cp " + source + " " + stage + "; " +
                 "chmod 0755 " + loader + " " + stage + "; " +
                 "h1=$(sha256sum " + loader + "); h1=${h1%% *}; " +
                 "h2=$(sha256sum " + stage + "); h2=${h2%% *}; " +
-                "test \"$h1\" = " + KSUD_SHA256 + "; " +
-                "test \"$h2\" = " + KSUD_SHA256 + "; " +
+                hashTests +
                 "echo KSU_STAGE_OK:$h1";
 
         List<String> stageLines = new ArrayList<>();
@@ -464,7 +472,7 @@ final class M3qRootEngine {
     private int waitAndRetryAfterGrant(File helper, File ksud) {
         final int waitTotalSeconds = 12;
         final int probeIntervalSeconds = 2;
-        status("Verifying KernelSU control directly", STATUS_WORKING);
+        status("Verifying KernelSU", STATUS_WORKING);
         log("KernelSU rejected the app's su request; the payload daemon "
                 + "brings the driver up on its own. Verifying KernelSU "
                 + "control directly every " + probeIntervalSeconds
@@ -520,11 +528,13 @@ final class M3qRootEngine {
                 + "  echo M3Q_ROOT_PERMISSION_REQUIRED\n"
                 + "  exit 126\n"
                 + "fi\n"
-                + "hash=$(sha256sum \"$ksud\"); hash=${hash%% *}\n"
-                + "if [ \"$hash\" != " + KSUD_SHA256 + " ]; then\n"
-                + "  echo M3Q_KSUD_HASH_MISMATCH:$hash\n"
-                + "  exit 125\n"
-                + "fi\n"
+                + (ksudIsBundled()
+                        ? "hash=$(sha256sum \"$ksud\"); hash=${hash%% *}\n"
+                          + "if [ \"$hash\" != " + KSUD_SHA256 + " ]; then\n"
+                          + "  echo M3Q_KSUD_HASH_MISMATCH:$hash\n"
+                          + "  exit 125\n"
+                          + "fi\n"
+                        : "")
                 + "info=$(\"$ksud\" debug info 2>&1)\n"
                 + "printf '%s\\n' \"$info\"\n"
                 + "printf '%s\\n' \"$info\" | grep -Fqx 'version: 32525' || exit 125\n"
@@ -558,7 +568,7 @@ final class M3qRootEngine {
 
     int rebootDevice() {
         List<String> output = new ArrayList<>();
-        int code = runKernelSuRootCommand(nativeFile(KSUD), "reboot", 30, output);
+        int code = runKernelSuRootCommand(activeKsud(), "reboot", 30, output);
         for (String line : output) log(line);
         return code;
     }
@@ -756,6 +766,15 @@ final class M3qRootEngine {
         }
     }
 
+    /** Payload output embeds ANSI color codes (ESC[32m ... ESC[0m); strip
+     * them so the log panel and exported run log stay readable. */
+    private static final Pattern ANSI_ESCAPE =
+            Pattern.compile("\\u001B\\[[0-9;]*[A-Za-z]");
+
+    private static String stripAnsi(String line) {
+        return line == null ? "" : ANSI_ESCAPE.matcher(line).replaceAll("");
+    }
+
     private Thread streamReader(InputStream stream, List<String> capture,
                                 boolean display, String name) {
         Thread reader = new Thread(() -> {
@@ -763,6 +782,7 @@ final class M3qRootEngine {
                     stream, StandardCharsets.UTF_8))) {
                 String line;
                 while ((line = in.readLine()) != null) {
+                    line = stripAnsi(line);
                     if (capture != null) {
                         synchronized (capture) {
                             capture.add(line);
@@ -814,6 +834,36 @@ final class M3qRootEngine {
     }
 
     private volatile File payloadOverride;
+
+    /** Registry-provided ksud for the active payload; null = bundled build. */
+    private volatile File ksudOverride;
+    private volatile long ksudOverrideSize = -1;
+    private volatile String kmiOverride;
+
+    void setKsudOverride(File file, long expectedSize) {
+        ksudOverride = file;
+        ksudOverrideSize = expectedSize;
+    }
+
+    void setKmiOverride(String kmi) {
+        kmiOverride = kmi;
+    }
+
+    private File activeKsud() {
+        File override = ksudOverride;
+        return (override != null && override.isFile())
+                ? override : nativeFile(KSUD);
+    }
+
+    private boolean ksudIsBundled() {
+        File override = ksudOverride;
+        return override == null || !override.isFile();
+    }
+
+    private String activeKmi() {
+        String kmi = kmiOverride;
+        return (kmi == null || kmi.isEmpty()) ? "android15-6.6" : kmi;
+    }
 
     void setPayloadOverride(File file) {
         payloadOverride = file;
