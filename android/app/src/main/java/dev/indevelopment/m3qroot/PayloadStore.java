@@ -27,6 +27,7 @@ import java.util.List;
 final class PayloadStore {
     static final String BUNDLED_PAYLOAD_ID = "pa1q-S931BXXUCZZI4";
     static final String BUNDLED_PAYLOAD_ID_S938B = "pa3q-S938BXXUCZZI4";
+    static final String BUNDLED_PAYLOAD_ID_S936B = "pa2q-S936BXXUCZZI4";
     static final String BUNDLED_KMI = "android15-6.6";
     private static final String REGISTRY_URL =
             "https://raw.githubusercontent.com/BuSung-dev/Root-My-Galaxy-Payloads/main/support/targets-v3.json";
@@ -135,36 +136,51 @@ final class PayloadStore {
 
     /** Bundled profile for a specific bundled payload id. */
     static Profile bundledProfile(String payloadId) {
-        boolean ultra = BUNDLED_PAYLOAD_ID_S938B.equals(payloadId);
+        String model = bundledModelFor(payloadId);
+        String label = BUNDLED_PAYLOAD_ID_S938B.equals(payloadId)
+                ? "Galaxy S25 Ultra | Kernel 6.6.127 (One UI 9 beta 2, bundled)"
+                : BUNDLED_PAYLOAD_ID_S936B.equals(payloadId)
+                ? "Galaxy S25+ | Kernel 6.6.127 (One UI 9 beta 2, bundled)"
+                : "Galaxy S25 | Kernel 6.6.127 (One UI 9 beta 2, bundled)";
         List<String> models = new ArrayList<>();
-        models.add(ultra ? "SM-S938B" : "SM-S931B");
+        models.add(model);
         List<String> kernels = new ArrayList<>();
         kernels.add("6.6.127");
-        return new Profile(payloadId,
-                ultra ? "Galaxy S25 Ultra | Kernel 6.6.127 (One UI 9 beta 2, bundled)"
-                      : "Galaxy S25 | Kernel 6.6.127 (One UI 9 beta 2, bundled)",
-                models, kernels, "", -1);
+        return new Profile(payloadId, label, models, kernels, "", -1);
     }
 
     /** True for any payload compiled into this APK. */
     static boolean isBundledId(String payloadId) {
         return BUNDLED_PAYLOAD_ID.equals(payloadId)
-                || BUNDLED_PAYLOAD_ID_S938B.equals(payloadId);
+                || BUNDLED_PAYLOAD_ID_S938B.equals(payloadId)
+                || BUNDLED_PAYLOAD_ID_S936B.equals(payloadId);
     }
 
-    /** The bundled payload matching this device: S25 Ultra vs S25. */
+    /** The bundled payload matching this device: S25 family per model. */
     static String bundledPayloadIdForDevice() {
-        if ("SM-S938B".equals(deviceModel())
-                && deviceKernel().startsWith("6.6.127")) {
-            return BUNDLED_PAYLOAD_ID_S938B;
+        String model = deviceModel();
+        if (deviceKernel().startsWith("6.6.127")) {
+            if ("SM-S938B".equals(model)) return BUNDLED_PAYLOAD_ID_S938B;
+            if ("SM-S936B".equals(model)) return BUNDLED_PAYLOAD_ID_S936B;
         }
         return BUNDLED_PAYLOAD_ID;
     }
 
     /** jniLib file name of the bundled payload for a bundled id. */
     static String bundledLibName(String payloadId) {
-        return BUNDLED_PAYLOAD_ID_S938B.equals(payloadId)
-                ? "libm3qpayload_s938b.so" : "libm3qpayload.so";
+        if (BUNDLED_PAYLOAD_ID_S938B.equals(payloadId)) {
+            return "libm3qpayload_s938b.so";
+        }
+        if (BUNDLED_PAYLOAD_ID_S936B.equals(payloadId)) {
+            return "libm3qpayload_s936b.so";
+        }
+        return "libm3qpayload.so";
+    }
+
+    private static String bundledModelFor(String payloadId) {
+        if (BUNDLED_PAYLOAD_ID_S938B.equals(payloadId)) return "SM-S938B";
+        if (BUNDLED_PAYLOAD_ID_S936B.equals(payloadId)) return "SM-S936B";
+        return "SM-S931B";
     }
 
     /** GKI KMI string for a kernel version, e.g. "6.1.157" -> "android14-6.1". */

@@ -133,7 +133,7 @@ public final class MainActivity extends AppCompatActivity {
             setStatus("Checking device", STATUS_WORKING);
             setStatusDetail("Verifying firmware and payload compatibility.");
             run.setEnabled(false);
-            append("Bundled payloads target Galaxy S25 (S931BXXUCZZI4) and Galaxy S25 Ultra (S938BXXUCZZI4), both One UI 9 beta 2; other devices can pick a matching payload.");
+            append("Bundled payloads target Galaxy S25 (S931BXXUCZZI4), Galaxy S25+ (S936BXXUCZZI4) and Galaxy S25 Ultra (S938BXXUCZZI4), all One UI 9 beta 2; other devices can pick a matching payload.");
         } else {
             setStatus(getString(R.string.status_checking), STATUS_WORKING);
             setStatusDetail(getString(R.string.status_checking_detail));
@@ -453,12 +453,8 @@ public final class MainActivity extends AppCompatActivity {
         String manualId = prefs.getString("manual_payload_id", "");
         String model = PayloadStore.deviceModel();
         List<PayloadStore.Profile> options = new ArrayList<>();
-        options.add(PayloadStore.bundledProfile());
-        options.add(PayloadStore.bundledProfile(
-                PayloadStore.bundledPayloadIdForDevice()
-                        .equals(PayloadStore.BUNDLED_PAYLOAD_ID)
-                        ? PayloadStore.BUNDLED_PAYLOAD_ID_S938B
-                        : PayloadStore.BUNDLED_PAYLOAD_ID));
+        String deviceBundled = PayloadStore.bundledPayloadIdForDevice();
+        options.add(PayloadStore.bundledProfile(deviceBundled));
         List<PayloadStore.Profile> deviceMatches = new ArrayList<>();
         for (PayloadStore.Profile profile : registry) {
             if (!PayloadStore.isBundledId(profile.payloadId)
@@ -469,7 +465,7 @@ public final class MainActivity extends AppCompatActivity {
         deviceMatches.sort((a, b) -> Boolean.compare(
                 PayloadStore.kernelMatches(b), PayloadStore.kernelMatches(a)));
         for (PayloadStore.Profile profile : deviceMatches) {
-            if (options.size() >= 4) break;
+            if (options.size() >= 5) break;
             options.add(profile);
         }
                 float density = getResources().getDisplayMetrics().density;

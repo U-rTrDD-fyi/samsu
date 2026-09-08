@@ -98,10 +98,15 @@ final class M3qRootEngine {
                 && Build.FINGERPRINT.contains(FINGERPRINT)) {
             return true;
         }
-        // Same p33f4ffe GKI build ships on the S25 Ultra (pa3q) in beta 2.
-        return "SM-S938B".equals(Build.MODEL)
+        // Same p33f4ffe GKI build ships across the S25 family in beta 2.
+        if ("SM-S938B".equals(Build.MODEL)
                 && kernel.startsWith("6.6.127-android15-8-p33f4ffe")
-                && Build.FINGERPRINT.contains("S938BXXUCZZI4");
+                && Build.FINGERPRINT.contains("S938BXXUCZZI4")) {
+            return true;
+        }
+        return "SM-S936B".equals(Build.MODEL)
+                && kernel.startsWith("6.6.127-android15-8-p33f4ffe")
+                && Build.FINGERPRINT.contains("S936BXXUCZZI4");
     }
 
     RootState checkRoot(boolean verbose) {

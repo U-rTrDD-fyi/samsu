@@ -16,6 +16,9 @@ tasks.register('prepareM3qPayloads', Copy) {
     from(rootProject.file('prebuilt/payload-pa3q-S938BXXUCZZI4.so')) {
         rename { 'libm3qpayload_s938b.so' }
     }
+    from(rootProject.file('prebuilt/payload-pa2q-S936BXXUCZZI4.so')) {
+        rename { 'libm3qpayload_s936b.so' }
+    }
     from(new File(nativeBin, 'slide_oracle.app.so')) {
         rename { 'libm3qoracle.so' }
     }
