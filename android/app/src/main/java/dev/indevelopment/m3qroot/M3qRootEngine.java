@@ -455,54 +455,49 @@ final class M3qRootEngine {
 
     /**
     /**
-     * Fresh setups can have KernelSU reject the first root request after the
-     * driver late-loads (no manager prompt is involved). Give the driver up
-     * to 10 seconds to start accepting requests, probing every 2 seconds,
-     * then retry staging. The loaded driver stays up until reboot, so
-     * staging can still complete on the same boot.
+    /**
+     * Fresh setups can have KernelSU reject the app's first su request after
+     * the driver late-loads, and that denial can persist even once the
+     * driver is up. The payload's root daemon late-loads the persisted
+     * ksud on its own schedule, so instead of retrying su we verify
+     * KernelSU control directly and give it up to 12 seconds to come up.
      */
     private int waitAndRetryAfterGrant(File helper, File ksud) {
-        final int waitTotalSeconds = 10;
+        final int waitTotalSeconds = 12;
         final int probeIntervalSeconds = 2;
-        status("KernelSU driver warming up, waiting up to "
-                + waitTotalSeconds + " seconds", STATUS_WORKING);
-        log("KernelSU rejected the first root request; waiting up to "
-                + waitTotalSeconds + " seconds for the freshly loaded "
-                + "driver to accept it ...");
-        log("No manager prompt is shown - the wait itself usually resolves this.");
-        for (int elapsed = probeIntervalSeconds;
-                elapsed <= waitTotalSeconds;
+        status("Verifying KernelSU control directly", STATUS_WORKING);
+        log("KernelSU rejected the app's su request; the payload daemon "
+                + "brings the driver up on its own. Verifying KernelSU "
+                + "control directly every " + probeIntervalSeconds
+                + " seconds (up to " + waitTotalSeconds + " seconds).");
+        for (int elapsed = 0; elapsed <= waitTotalSeconds;
                 elapsed += probeIntervalSeconds) {
-            try {
-                Thread.sleep(probeIntervalSeconds * 1000L);
-            } catch (InterruptedException ignored) {
-                Thread.currentThread().interrupt();
-                return 125;
+            if (elapsed > 0) {
+                try {
+                    Thread.sleep(probeIntervalSeconds * 1000L);
+                } catch (InterruptedException ignored) {
+                    Thread.currentThread().interrupt();
+                    return 125;
+                }
             }
-            List<String> probeLines = new ArrayList<>();
-            ProcessBuilder probe = new ProcessBuilder(
-                    helper.getAbsolutePath(), "-c", "id");
-            probe.redirectErrorStream(true);
-            int probeCode = runProcess(probe, 10, probeLines, false);
-            String probeOutput = String.join("\n", probeLines);
-            if (probeCode == 0 && probeOutput.contains("uid=0")) {
-                log("KernelSU root granted after " + elapsed
-                        + " seconds; retrying KernelSU staging.");
-                return activateKernelSu(helper, ksud, false);
+            RootState state = checkRoot(false);
+            if (state.terminationUnconfirmed()) {
+                return EXIT_TERMINATION_UNCONFIRMED;
+            }
+            if (state.ready()) {
+                log("KernelSU active after " + elapsed + " seconds; "
+                        + "su-based staging not required.");
+                status("KernelSU active", 0xff94cf86);
+                return 0;
             }
             if (elapsed < waitTotalSeconds) {
-                log("Driver not accepting root yet after " + elapsed
-                        + " seconds; still waiting ...");
+                log("KernelSU control not ready yet after " + elapsed
+                        + " seconds; still verifying ...");
             }
         }
         status("KernelSU root denied - reboot and run again", 0xffffb4ab);
-        log("KernelSU did not accept the root request within "
-                + waitTotalSeconds + " seconds. Reboot and run again.");
-        RootState state = checkRoot(false);
-        if (state.ready()) {
-            log("KernelSU became active anyway; staging not required.");
-            return 0;
-        }
+        log("KernelSU did not become active within " + waitTotalSeconds
+                + " seconds. Reboot and run again.");
         return 125;
     }
 
