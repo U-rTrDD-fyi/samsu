@@ -61,7 +61,7 @@ final class M3qRootEngine {
     private static final String STAGED_PAYLOAD = "/data/local/tmp/samsu-payload.so";
     private static final String MODULE_RELOAD_HOOK_DIR = "/data/adb/boot-completed.d";
     private static final String KSUD_SHA256 =
-            "fa3edcc7d168637394877b30cb1f909d762dda788ec14051f4ae79edd6562d63";
+            "1e1cb6b861d0d4951b7374c12404eee1fb4c02a77240e0500ca571a302396374";
     private static final String SAFETY_PREFS = "kernel_run_safety";
     private static final String ATTEMPT_BOOT_ID = "attempt_boot_id";
     private static final String VERIFIED_KSU_BOOT_ID = "verified_ksu_boot_id";
