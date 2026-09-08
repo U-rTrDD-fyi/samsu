@@ -57,7 +57,7 @@ KernelSU Manager **3.2.5** must be installed (newer managers are flagged in the 
 4. Hold root button. Do not retry an uncertain kernel run in the same boot.
 5. If modules or LSPosed are inactive, hold **Hold to reload KernelSU**, then **Hold to soft reboot**.
 <p align="center" width="50%">
-<video src="https://github.com/user-attachments/assets/7cffec29-d169-48fd-965f-0f99d8b3ab92" width="20%" controls></video>
+<video src="https://github.com/user-attachments/assets/9b75cee0-a08c-4b02-be1b-b49bdb224141" width="20%" controls></video>
 </p>
 
 ## Root process
