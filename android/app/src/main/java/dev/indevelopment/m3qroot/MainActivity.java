@@ -366,10 +366,6 @@ public final class MainActivity extends AppCompatActivity {
             if (options.size() >= 3) break;
             options.add(profile);
         }
-        if (options.size() <= 1) {
-            append("No alternative payloads available for this device.");
-            return;
-        }
                 float density = getResources().getDisplayMetrics().density;
         LinearLayout list = new LinearLayout(this);
         list.setOrientation(LinearLayout.VERTICAL);
