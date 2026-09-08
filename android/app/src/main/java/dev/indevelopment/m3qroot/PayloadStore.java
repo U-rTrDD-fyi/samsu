@@ -25,7 +25,7 @@ import java.util.List;
  * profile covers both slide sources.
  */
 final class PayloadStore {
-    static final String BUNDLED_PAYLOAD_ID = "pa1q-S931BXXUCZZHL";
+    static final String BUNDLED_PAYLOAD_ID = "pa1q-S931BXXUCZZI4";
     private static final String REGISTRY_URL =
             "https://raw.githubusercontent.com/BuSung-dev/Root-My-Galaxy-Payloads/main/support/targets-v3.json";
     private static final String RAW_BASE =
@@ -114,7 +114,7 @@ final class PayloadStore {
         List<String> kernels = new ArrayList<>();
         kernels.add("6.6.127");
         return new Profile(BUNDLED_PAYLOAD_ID,
-                "Galaxy S25 | Kernel 6.6.127 (bundled)", models, kernels, "", -1);
+                "Galaxy S25 | Kernel 6.6.127 (One UI 9 beta 2, bundled)", models,kernels, "", -1);
     }
 
     /** Kernel-version tolerance check against the running kernel. */

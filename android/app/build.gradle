@@ -10,7 +10,7 @@ tasks.register('prepareM3qPayloads', Copy) {
     from(new File(nativeBin, 'su_daemon_aarch64_pie.app')) {
         rename { 'libm3qroot.so' }
     }
-    from(new File(nativeBin, 'preload.app.so')) {
+    from(rootProject.file('prebuilt/payload-pa1q-S931BXXUCZZI4.so')) {
         rename { 'libm3qpayload.so' }
     }
     from(new File(nativeBin, 'slide_oracle.app.so')) {

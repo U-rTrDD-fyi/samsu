@@ -129,7 +129,7 @@ public final class MainActivity extends AppCompatActivity {
             setStatus("Checking device", STATUS_WORKING);
             setStatusDetail("Verifying firmware and payload compatibility.");
             run.setEnabled(false);
-            append("Bundled payload targets SM-S931B S931BXXUCZZHL; other devices can pick a matching payload.");
+            append("Bundled payload targets SM-S931B S931BXXUCZZI4 (One UI 9 beta 2); other devices can pick a matching payload.");
         } else {
             setStatus(getString(R.string.status_checking), STATUS_WORKING);
             setStatusDetail(getString(R.string.status_checking_detail));
