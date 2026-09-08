@@ -148,6 +148,10 @@ public final class MainActivity extends AppCompatActivity {
         dashboard = findViewById(R.id.dashboard);
         statusTile = findViewById(R.id.status_tile);
         statusIcon = findViewById(R.id.status_icon);
+        statusTile.setClickable(true);
+        bindHoldAction(statusTile, "KernelSU manager", 1000L,
+                () -> openPackage(KSU_MANAGER_PACKAGE,
+                        "Grant SU to SamSU and refresh."));
         payloadButton = findViewById(R.id.payload_button);
         subtitleText = findViewById(R.id.app_subtitle);
         subtitleText.setText(deviceMarketingLabel());
@@ -591,6 +595,7 @@ public final class MainActivity extends AppCompatActivity {
                     holdCompleted[0] = false;
                     holdFire[0] = () -> {
                         holdCompleted[0] = true;
+                        buzz();
                         row.animate().alpha(1f).setDuration(150).start();
                         removeCachedPayload(option.payloadId);
                         dialog.dismiss();
@@ -666,11 +671,30 @@ public final class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void bindHoldAction(MaterialButton button, String label, long holdMillis, Runnable action) {
+    private void buzz() {
+        try {
+            android.os.Vibrator vibrator =
+                    (android.os.Vibrator) getSystemService(VIBRATOR_SERVICE);
+            if (vibrator == null || !vibrator.hasVibrator()) return;
+            if (android.os.Build.VERSION.SDK_INT >= 29) {
+                /* Light system tick: short, low-energy, tactile "tk". */
+                vibrator.vibrate(android.os.VibrationEffect.createPredefined(
+                        android.os.VibrationEffect.EFFECT_TICK));
+            } else {
+                vibrator.vibrate(android.os.VibrationEffect.createOneShot(
+                        20, 80));
+            }
+        } catch (Exception ignored) {
+            /* No vibrator service: holds stay silent, no failure. */
+        }
+    }
+
+    private void bindHoldAction(View button, String label, long holdMillis, Runnable action) {
         final Handler holdHandler = new Handler(Looper.getMainLooper());
         final AtomicBoolean fired = new AtomicBoolean();
         final Runnable fire = () -> {
             fired.set(true);
+            buzz();
             button.animate().alpha(1f).setDuration(150).start();
             append(label + " triggered");
             action.run();
@@ -688,7 +712,8 @@ public final class MainActivity extends AppCompatActivity {
                     holdHandler.removeCallbacks(fire);
                     if (!fired.get()) {
                         button.animate().alpha(1f).setDuration(150).start();
-                        append("Hold " + label.toLowerCase() + " for 1.4 seconds to trigger.");
+                        append("Hold " + label.toLowerCase() + " for "
+                                + (holdMillis / 1000.0) + " seconds to trigger.");
                     }
                     return true;
                 default:
