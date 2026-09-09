@@ -569,32 +569,27 @@ final class M3qRootEngine {
 
     private int runKernelSuRootCommand(File ksud, String command, int timeoutSeconds,
                                        List<String> output) {
-        /* The ksud binary may live in the app's private filesDir (noexec on
-         * modern Android).  If so, use the staged copy at KSU_LOADER_PATH that
-         * activateKernelSu placed earlier, or try Shizuku shell as fallback. */
-        File executable = ksud;
         File staged = new File(KSU_LOADER_PATH);
-        if (staged.isFile() && staged.canExecute()) {
-            executable = staged;
-        } else if (!ksud.canExecute() && ShizukuShell.isRunning() && ShizukuShell.isGranted()) {
-            try {
-                String[] cmd = {ksud.getAbsolutePath(), "debug", "su", "-g"};
-                String[] env = {"HOME=/data/local/tmp", "TMPDIR=/data/local/tmp",
-                        "PATH=/system/bin:/system/xbin"};
-                Process process = ShizukuShell.exec(cmd, env, "/data/local/tmp");
-                try (BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(
-                        process.getOutputStream(), StandardCharsets.UTF_8))) {
-                    writer.write(command);
-                    writer.newLine();
-                    writer.write("exit");
-                    writer.newLine();
+        /* Ensure the ksud binary is at an executable path. App-private filesDir
+         * is noexec on modern Android; stage to /data/local/tmp via Shizuku. */
+        if (!staged.isFile() || !staged.canExecute()) {
+            if (ShizukuShell.isRunning() && ShizukuShell.isGranted()) {
+                try {
+                    String src = shellQuote(ksud.getAbsolutePath());
+                    String dst = shellQuote(KSU_LOADER_PATH);
+                    Process cp = ShizukuShell.exec(
+                            new String[]{"sh", "-c", "cp " + src + " " + dst
+                                    + " && chmod 755 " + dst},
+                            new String[]{"PATH=/system/bin:/system/xbin"},
+                            "/data/local/tmp");
+                    cp.waitFor();
+                } catch (Exception e) {
+                    log("ksud stage error: " + e.getMessage());
                 }
-                return runProcess(process, timeoutSeconds, output, true);
-            } catch (RuntimeException | IOException e) {
-                log("KernelSU Shizuku shell error: " + e.getMessage());
-                return 127;
+                staged = new File(KSU_LOADER_PATH);
             }
         }
+        File executable = (staged.isFile() && staged.canExecute()) ? staged : ksud;
         ProcessBuilder processBuilder = new ProcessBuilder(
                 executable.getAbsolutePath(), "debug", "su", "-g");
         processBuilder.directory(new File("/data/local/tmp"));
