@@ -9,7 +9,7 @@ def ksudR13s = rootProject.file('prebuilt/ksud-r13s-S731U1UES7BZF3-kdp')
 def jniOut = file('src/main/jniLibs/arm64-v8a')
 
 tasks.register('prepareM3qPayloads', Copy) {
-    from(rootProject.file('prebuilt/su_daemon_rmg.app')) {
+    from(new File(nativeBin, 'su_daemon_aarch64_pie.app')) {
         rename { 'libm3qroot.so' }
     }
     from(rootProject.file('prebuilt/payload-pa1q-S931BXXUCZZI4.so')) {
