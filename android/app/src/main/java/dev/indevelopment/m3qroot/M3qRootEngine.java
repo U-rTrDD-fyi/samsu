@@ -569,50 +569,31 @@ final class M3qRootEngine {
 
     private int runKernelSuRootCommand(File ksud, String command, int timeoutSeconds,
                                        List<String> output) {
-        /* Resolve an executable ksud at KSU_LOADER_PATH (/data/local/tmp/).
-         * App-private filesDir is noexec, and nativeLibraryDir .so files cannot
-         * be directly executed as processes on Android 16+.  Always stage via
-         * Shizuku to /data/local/tmp where exec is permitted. */
-        File staged = new File(KSU_LOADER_PATH);
+        /* Run the command through the bootstrap helper's su daemon (-c),
+         * exactly like the RMG app does. The helper connects to the su socket
+         * and executes the command as root. No need to exec ksud directly. */
+        File helper = nativeFile(HELPER);
         if (ShizukuShell.isRunning() && ShizukuShell.isGranted()) {
-            File bundled = nativeFile(
-                    PayloadStore.bundledKsudLibName(PayloadStore.bundledPayloadIdForDevice()));
-            if (bundled.isFile()) {
-                try {
-                    Process cp = ShizukuShell.exec(
-                            new String[]{"sh", "-c",
-                                    "cp " + shellQuote(bundled.getAbsolutePath()) + " "
-                                    + shellQuote(KSU_LOADER_PATH)
-                                    + " && chmod 755 " + shellQuote(KSU_LOADER_PATH)},
-                            new String[]{"PATH=/system/bin:/system/xbin"},
-                            "/data/local/tmp");
-                    cp.waitFor();
-                } catch (Exception e) {
-                    log("ksud stage error: " + e.getMessage());
-                }
-                staged = new File(KSU_LOADER_PATH);
+            try {
+                Process process = ShizukuShell.exec(
+                        new String[]{helper.getAbsolutePath(), "-c", command},
+                        new String[]{"HOME=/data/local/tmp", "TMPDIR=/data/local/tmp",
+                                "PATH=/system/bin:/system/xbin"},
+                        "/data/local/tmp");
+                return runProcess(process, timeoutSeconds, output, true);
+            } catch (RuntimeException e) {
+                log("KernelSU Shizuku helper error: " + e.getMessage());
+                return 127;
             }
         }
-        File executable = staged.isFile() ? staged : ksud;
         ProcessBuilder processBuilder = new ProcessBuilder(
-                executable.getAbsolutePath(), "debug", "su", "-g");
+                helper.getAbsolutePath(), "-c", command);
         processBuilder.directory(new File("/data/local/tmp"));
         processBuilder.redirectErrorStream(true);
-        processBuilder.environment().put("HOME", "/data/local/tmp");
-        processBuilder.environment().put("TMPDIR", "/data/local/tmp");
-        processBuilder.environment().put("PATH", "/system/bin:/system/xbin");
         try {
-            Process process = processBuilder.start();
-            try (BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(
-                    process.getOutputStream(), StandardCharsets.UTF_8))) {
-                writer.write(command);
-                writer.newLine();
-                writer.write("exit");
-                writer.newLine();
-            }
-            return runProcess(process, timeoutSeconds, output, true);
+            return runProcess(processBuilder.start(), timeoutSeconds, output, true);
         } catch (IOException e) {
-            log("KernelSU root shell error: " + e.getMessage());
+            log("KernelSU helper error: " + e.getMessage());
             return 127;
         }
     }
