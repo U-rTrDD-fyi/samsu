@@ -6,46 +6,47 @@
     android:viewportHeight="108">
 
     <group
-        android:translateX="18"
-        android:translateY="18"
-        android:scaleX="0.67"
-        android:scaleY="0.67">
+        android:translateX="20"
+        android:translateY="16"
+        android:scaleX="0.63"
+        android:scaleY="0.63">
 
-        <!-- Shield body - dark blue base -->
+        <!-- Dark border/outline of shield -->
         <path
-            android:fillColor="#1E5A9E"
-            android:pathData="M54,20 L80,31 L80,55 C80,71 69,82 54,88 C39,82 28,71 28,55 L28,31 Z" />
+            android:fillColor="#1A3060"
+            android:pathData="M54,14 L86,28 L86,58 C86,76 72,88 54,94 C36,88 22,76 22,58 L22,28 Z" />
 
-        <!-- Shield upper-left facet -->
+        <!-- Main shield body - gradient effect via two overlapping shapes -->
+        <!-- Lower portion - darker blue -->
         <path
-            android:fillColor="#3B8DD4"
-            android:pathData="M54,20 L28,31 L28,48 L54,53 Z" />
+            android:fillColor="#1858B0"
+            android:pathData="M54,18 L82,31 L82,56 C82,73 69,84 54,90 C39,84 26,73 26,56 L26,31 Z" />
 
-        <!-- Shield upper-right facet -->
+        <!-- Upper portion - brighter blue -->
         <path
-            android:fillColor="#4DA3E8"
-            android:pathData="M54,20 L80,31 L80,48 L54,53 Z" />
+            android:fillColor="#2E7DE8"
+            android:pathData="M54,18 L82,31 L82,50 L26,50 L26,31 Z" />
 
-        <!-- Shield lower-left facet -->
+        <!-- Top highlight - lightest blue -->
         <path
-            android:fillColor="#2567A8"
-            android:pathData="M28,48 L54,53 L54,88 C39,82 28,71 28,55 Z" />
+            android:fillColor="#4A9CF5"
+            android:pathData="M54,18 L82,31 L82,38 L26,38 L26,31 Z" />
 
-        <!-- Shield lower-right facet -->
+        <!-- Crack line 1 (upper) -->
         <path
-            android:fillColor="#1B4F8A"
-            android:pathData="M80,48 L54,53 L54,88 C69,82 80,71 80,55 Z" />
+            android:fillColor="#081828"
+            android:pathData="M24,49 L42,49 L48,46 L56,52 L62,49 L84,51 L84,52.5 L62,50.5 L56,53.5 L48,47.5 L42,50.5 L24,50.5 Z" />
 
-        <!-- Center breach notch -->
+        <!-- Crack line 2 (lower) - identical shape offset down -->
         <path
-            android:fillColor="#0D1B2E"
-            android:pathData="M40,49 L54,55 L68,49 L68,52 L54,58 L40,52 Z" />
+            android:fillColor="#081828"
+            android:pathData="M24,52 L42,52 L48,49 L56,55 L62,52 L84,54 L84,55.5 L62,53.5 L56,56.5 L48,50.5 L42,53.5 L24,53.5 Z" />
 
-        <!-- Upper highlight -->
+        <!-- Cyan glow between crack lines -->
         <path
-            android:fillColor="#7CC4F5"
-            android:pathData="M54,24 L73,33 L73,45 L54,49 Z"
-            android:fillAlpha="0.3" />
+            android:fillColor="#40E0F0"
+            android:pathData="M24,50.5 L42,50.5 L48,47.5 L56,53.5 L62,50.5 L84,52.5 L84,54 L62,52 L56,55 L48,49 L42,52 L24,52 Z"
+            android:fillAlpha="0.5" />
 
     </group>
 
