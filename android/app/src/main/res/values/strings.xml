@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">SU</string>
+    <string name="app_name">SamSU</string>
     <string name="app_title">SamSU</string>
     <string name="app_subtitle">Galaxy S25 ?? SM-S931B</string>
     <string name="status_section">Current status</string>

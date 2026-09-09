@@ -5,40 +5,48 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- Shield body - dark blue base -->
-    <path
-        android:fillColor="#1E5A9E"
-        android:pathData="M54,20 L80,31 L80,55 C80,71 69,82 54,88 C39,82 28,71 28,55 L28,31 Z" />
+    <group
+        android:translateX="18"
+        android:translateY="18"
+        android:scaleX="0.67"
+        android:scaleY="0.67">
 
-    <!-- Shield upper-left facet - medium blue -->
-    <path
-        android:fillColor="#3B8DD4"
-        android:pathData="M54,20 L28,31 L28,48 L54,53 Z" />
+        <!-- Shield body - dark blue base -->
+        <path
+            android:fillColor="#1E5A9E"
+            android:pathData="M54,20 L80,31 L80,55 C80,71 69,82 54,88 C39,82 28,71 28,55 L28,31 Z" />
 
-    <!-- Shield upper-right facet - brighter blue -->
-    <path
-        android:fillColor="#4DA3E8"
-        android:pathData="M54,20 L80,31 L80,48 L54,53 Z" />
+        <!-- Shield upper-left facet -->
+        <path
+            android:fillColor="#3B8DD4"
+            android:pathData="M54,20 L28,31 L28,48 L54,53 Z" />
 
-    <!-- Shield lower-left facet - deep blue -->
-    <path
-        android:fillColor="#2567A8"
-        android:pathData="M28,48 L54,53 L54,88 C39,82 28,71 28,55 Z" />
+        <!-- Shield upper-right facet -->
+        <path
+            android:fillColor="#4DA3E8"
+            android:pathData="M54,20 L80,31 L80,48 L54,53 Z" />
 
-    <!-- Shield lower-right facet - darkest blue -->
-    <path
-        android:fillColor="#1B4F8A"
-        android:pathData="M80,48 L54,53 L54,88 C69,82 80,71 80,55 Z" />
+        <!-- Shield lower-left facet -->
+        <path
+            android:fillColor="#2567A8"
+            android:pathData="M28,48 L54,53 L54,88 C39,82 28,71 28,55 Z" />
 
-    <!-- Center breach notch - dark cut across middle -->
-    <path
-        android:fillColor="#0D1B2E"
-        android:pathData="M40,49 L54,55 L68,49 L68,52 L54,58 L40,52 Z" />
+        <!-- Shield lower-right facet -->
+        <path
+            android:fillColor="#1B4F8A"
+            android:pathData="M80,48 L54,53 L54,88 C69,82 80,71 80,55 Z" />
 
-    <!-- Upper highlight glint -->
-    <path
-        android:fillColor="#7CC4F5"
-        android:pathData="M54,24 L73,33 L73,45 L54,49 Z"
-        android:fillAlpha="0.3" />
+        <!-- Center breach notch -->
+        <path
+            android:fillColor="#0D1B2E"
+            android:pathData="M40,49 L54,55 L68,49 L68,52 L54,58 L40,52 Z" />
+
+        <!-- Upper highlight -->
+        <path
+            android:fillColor="#7CC4F5"
+            android:pathData="M54,24 L73,33 L73,45 L54,49 Z"
+            android:fillAlpha="0.3" />
+
+    </group>
 
 </vector>
