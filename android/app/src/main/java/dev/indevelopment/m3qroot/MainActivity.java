@@ -90,7 +90,7 @@ public final class MainActivity extends AppCompatActivity {
     private MaterialButton diagnosticsToggle;
     private boolean diagnosticsVisible;
     private boolean runIsReboot;
-    private volatile String activePayloadId = PayloadStore.BUNDLED_PAYLOAD_ID;
+    private volatile String activePayloadId = PayloadStore.bundledPayloadIdForDevice();
     private volatile boolean payloadResolved;
     private volatile java.util.List<PayloadStore.Profile> lastRegistry;
 
@@ -133,7 +133,7 @@ public final class MainActivity extends AppCompatActivity {
             setStatus("Checking device", STATUS_WORKING);
             setStatusDetail("Verifying firmware and payload compatibility.");
             run.setEnabled(false);
-            append("Bundled payloads target Galaxy S25 (S931BXXUCZZI4), Galaxy S25+ (S936BXXUCZZI4) and Galaxy S25 Ultra (S938BXXUCZZI4), all One UI 9 beta 2; other devices can pick a matching payload.");
+            append("Bundled payloads target Galaxy S25 series, Galaxy A36 5G (SM-S366V), and Galaxy S25 FE (SM-S731U1); other devices can pick a matching payload from the registry.");
         } else {
             setStatus(getString(R.string.status_checking), STATUS_WORKING);
             setStatusDetail(getString(R.string.status_checking_detail));
@@ -211,21 +211,7 @@ public final class MainActivity extends AppCompatActivity {
     }
 
     private void bindActions() {
-        run.setOnClickListener(v -> {
-            if (runIsReboot) {
-                onRunHoldAction();
-                return;
-            }
-            new MaterialAlertDialogBuilder(this)
-                    .setTitle("Root")
-                    .setMessage("Start the kernel exploit? The device must have been rebooted since the last attempt.")
-                    .setPositiveButton("Root", (d, w) -> {
-                        append("Root triggered");
-                        onRunHoldAction();
-                    })
-                    .setNegativeButton("Cancel", null)
-                    .show();
-        });
+        run.setOnClickListener(v -> { append("Root triggered"); onRunHoldAction(); });
         bindHoldAction(reapplyModules, "Module reload", HOLD_TO_CONFIRM_MILLIS, this::startModuleReload);
         bindHoldAction(restartZygote, "Soft reboot", HOLD_TO_CONFIRM_MILLIS, this::startSoftBoot);
         bindHoldAction(unrootReboot, "Unroot", HOLD_TO_CONFIRM_MILLIS, this::startUnrootReboot);
@@ -257,12 +243,15 @@ public final class MainActivity extends AppCompatActivity {
     private volatile PayloadStore.Profile activeProfile;
     private volatile boolean payloadDownloading;
 
-    /** Bundled-target check, relaxed when a registry payload matches this device. */
+    /** Bundled-target check, relaxed when a registry payload or bundled payload matches. */
     private boolean deviceSupported() {
         if (engine.isSupported()) return true;
+        String model = PayloadStore.deviceModel();
         PayloadStore.Profile profile = activeProfile;
-        return profile != null
-                && profile.models.contains(PayloadStore.deviceModel());
+        if (profile != null && profile.models.contains(model)) return true;
+        String bundledId = PayloadStore.bundledPayloadIdForDevice();
+        return PayloadStore.isBundledId(bundledId)
+                && PayloadStore.bundledProfile(bundledId).models.contains(model);
     }
 
     private void resolvePayload() {

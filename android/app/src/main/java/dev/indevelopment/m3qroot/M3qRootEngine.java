@@ -942,7 +942,8 @@ final class M3qRootEngine {
     }
 
     /** Which bundled payload library to fall back to (S931B default). */
-    private volatile String bundledPayloadLib = PAYLOAD;
+    private volatile String bundledPayloadLib =
+            PayloadStore.bundledLibName(PayloadStore.bundledPayloadIdForDevice());
 
     void setBundledPayloadLib(String libName) {
         bundledPayloadLib = libName == null || libName.isEmpty()
