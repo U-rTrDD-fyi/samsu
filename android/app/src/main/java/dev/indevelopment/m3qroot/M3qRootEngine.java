@@ -569,9 +569,35 @@ final class M3qRootEngine {
 
     private int runKernelSuRootCommand(File ksud, String command, int timeoutSeconds,
                                        List<String> output) {
+        /* The ksud binary may live in the app's private filesDir (noexec on
+         * modern Android).  If so, use the staged copy at KSU_LOADER_PATH that
+         * activateKernelSu placed earlier, or try Shizuku shell as fallback. */
+        File executable = ksud;
+        File staged = new File(KSU_LOADER_PATH);
+        if (staged.isFile() && staged.canExecute()) {
+            executable = staged;
+        } else if (!ksud.canExecute() && ShizukuShell.isRunning() && ShizukuShell.isGranted()) {
+            try {
+                String[] cmd = {ksud.getAbsolutePath(), "debug", "su", "-g"};
+                String[] env = {"HOME=/data/local/tmp", "TMPDIR=/data/local/tmp",
+                        "PATH=/system/bin:/system/xbin"};
+                Process process = ShizukuShell.exec(cmd, env, "/data/local/tmp");
+                try (BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(
+                        process.getOutputStream(), StandardCharsets.UTF_8))) {
+                    writer.write(command);
+                    writer.newLine();
+                    writer.write("exit");
+                    writer.newLine();
+                }
+                return runProcess(process, timeoutSeconds, output, true);
+            } catch (RuntimeException | IOException e) {
+                log("KernelSU Shizuku shell error: " + e.getMessage());
+                return 127;
+            }
+        }
         ProcessBuilder processBuilder = new ProcessBuilder(
-                ksud.getAbsolutePath(), "debug", "su", "-g");
-        processBuilder.directory(context.getFilesDir());
+                executable.getAbsolutePath(), "debug", "su", "-g");
+        processBuilder.directory(new File("/data/local/tmp"));
         processBuilder.redirectErrorStream(true);
         processBuilder.environment().put("HOME", "/data/local/tmp");
         processBuilder.environment().put("TMPDIR", "/data/local/tmp");
