@@ -162,7 +162,7 @@ public final class MainActivity extends AppCompatActivity {
             try {
                 startActivity(new android.content.Intent(
                         android.content.Intent.ACTION_VIEW,
-                        android.net.Uri.parse("https://github.com/mitschud/samsu/releases")));
+                        android.net.Uri.parse("https://github.com/U-rTrDD-fyi/samsu/releases")));
             } catch (Exception ignored) {
                 /* No browser on device — leave the pill non-functional rather than crash. */
             }
@@ -1072,7 +1072,7 @@ public final class MainActivity extends AppCompatActivity {
         try {
             java.net.HttpURLConnection conn = (java.net.HttpURLConnection)
                     new java.net.URL(
-                            "https://api.github.com/repos/mitschud/samsu/releases/latest")
+                            "https://api.github.com/repos/U-rTrDD-fyi/samsu/releases/latest")
                             .openConnection();
             conn.setConnectTimeout(8000);
             conn.setReadTimeout(8000);
