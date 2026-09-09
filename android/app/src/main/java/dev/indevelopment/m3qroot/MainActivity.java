@@ -211,7 +211,21 @@ public final class MainActivity extends AppCompatActivity {
     }
 
     private void bindActions() {
-        run.setOnClickListener(v -> { append("Root triggered"); onRunHoldAction(); });
+        run.setOnClickListener(v -> {
+            if (runIsReboot) {
+                onRunHoldAction();
+                return;
+            }
+            new MaterialAlertDialogBuilder(this)
+                    .setTitle("Root")
+                    .setMessage("Start the kernel exploit? The device must have been rebooted since the last attempt.")
+                    .setPositiveButton("Root", (d, w) -> {
+                        append("Root triggered");
+                        onRunHoldAction();
+                    })
+                    .setNegativeButton("Cancel", null)
+                    .show();
+        });
         bindHoldAction(reapplyModules, "Module reload", HOLD_TO_CONFIRM_MILLIS, this::startModuleReload);
         bindHoldAction(restartZygote, "Soft reboot", HOLD_TO_CONFIRM_MILLIS, this::startSoftBoot);
         bindHoldAction(unrootReboot, "Unroot", HOLD_TO_CONFIRM_MILLIS, this::startUnrootReboot);
