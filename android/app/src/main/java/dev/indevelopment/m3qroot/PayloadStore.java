@@ -29,6 +29,7 @@ final class PayloadStore {
     static final String BUNDLED_PAYLOAD_ID_S938B = "pa3q-S938BXXUCZZI4";
     static final String BUNDLED_PAYLOAD_ID_S936B = "pa2q-S936BXXUCZZI4";
     static final String BUNDLED_PAYLOAD_ID_A36 = "a36xq-S366VUDS8CZF1";
+    static final String BUNDLED_PAYLOAD_ID_R13S = "r13s-S731U1UES7BZF3";
     static final String BUNDLED_KMI = "android15-6.6";
     private static final String REGISTRY_URL =
             "https://raw.githubusercontent.com/U-rTrDD-fyi/Root-My-Galaxy-Payloads/testing/support/targets-v3.json";
@@ -138,7 +139,9 @@ final class PayloadStore {
     /** Bundled profile for a specific bundled payload id. */
     static Profile bundledProfile(String payloadId) {
         String model = bundledModelFor(payloadId);
-        String label = BUNDLED_PAYLOAD_ID_A36.equals(payloadId)
+        String label = BUNDLED_PAYLOAD_ID_R13S.equals(payloadId)
+                ? "Galaxy S25 FE | Kernel 6.1.157 (bundled)"
+                : BUNDLED_PAYLOAD_ID_A36.equals(payloadId)
                 ? "Galaxy A36 5G (Tracfone) | Kernel 6.6.98 (bundled)"
                 : BUNDLED_PAYLOAD_ID_S938B.equals(payloadId)
                 ? "Galaxy S25 Ultra | Kernel 6.6.127 (One UI 9 beta 2, bundled)"
@@ -148,7 +151,8 @@ final class PayloadStore {
         List<String> models = new ArrayList<>();
         models.add(model);
         List<String> kernels = new ArrayList<>();
-        kernels.add(BUNDLED_PAYLOAD_ID_A36.equals(payloadId) ? "6.6.98" : "6.6.127");
+        kernels.add(BUNDLED_PAYLOAD_ID_R13S.equals(payloadId) ? "6.1.157"
+                : BUNDLED_PAYLOAD_ID_A36.equals(payloadId) ? "6.6.98" : "6.6.127");
         return new Profile(payloadId, label, models, kernels, "", -1);
     }
 
@@ -157,7 +161,8 @@ final class PayloadStore {
         return BUNDLED_PAYLOAD_ID.equals(payloadId)
                 || BUNDLED_PAYLOAD_ID_S938B.equals(payloadId)
                 || BUNDLED_PAYLOAD_ID_S936B.equals(payloadId)
-                || BUNDLED_PAYLOAD_ID_A36.equals(payloadId);
+                || BUNDLED_PAYLOAD_ID_A36.equals(payloadId)
+                || BUNDLED_PAYLOAD_ID_R13S.equals(payloadId);
     }
 
     /** The bundled payload matching this device: S25 family per model. */
@@ -168,6 +173,7 @@ final class PayloadStore {
             if ("SM-S936B".equals(model)) return BUNDLED_PAYLOAD_ID_S936B;
         }
         if ("SM-S366V".equals(model)) return BUNDLED_PAYLOAD_ID_A36;
+        if ("SM-S731U1".equals(model)) return BUNDLED_PAYLOAD_ID_R13S;
         return BUNDLED_PAYLOAD_ID;
     }
 
@@ -182,6 +188,9 @@ final class PayloadStore {
         if (BUNDLED_PAYLOAD_ID_A36.equals(payloadId)) {
             return "libm3qpayload_a36.so";
         }
+        if (BUNDLED_PAYLOAD_ID_R13S.equals(payloadId)) {
+            return "libm3qpayload_r13s.so";
+        }
         return "libm3qpayload.so";
     }
 
@@ -189,6 +198,7 @@ final class PayloadStore {
         if (BUNDLED_PAYLOAD_ID_S938B.equals(payloadId)) return "SM-S938B";
         if (BUNDLED_PAYLOAD_ID_S936B.equals(payloadId)) return "SM-S936B";
         if (BUNDLED_PAYLOAD_ID_A36.equals(payloadId)) return "SM-S366V";
+        if (BUNDLED_PAYLOAD_ID_R13S.equals(payloadId)) return "SM-S731U1";
         return "SM-S931B";
     }
 

@@ -5,6 +5,7 @@ plugins {
 def nativeBin = rootProject.file('../exploit/build/m3q-BP4A.251205.006/bin')
 def ksudBin = rootProject.file('prebuilt/ksud-m3q-S948NKSS4AZG3-kdp')
 def ksudA36 = rootProject.file('prebuilt/ksud-a36xq-S366VUDS8CZF1-kdp')
+def ksudR13s = rootProject.file('prebuilt/ksud-r13s-S731U1UES7BZF3-kdp')
 def jniOut = file('src/main/jniLibs/arm64-v8a')
 
 tasks.register('prepareM3qPayloads', Copy) {
@@ -29,8 +30,14 @@ tasks.register('prepareM3qPayloads', Copy) {
     from(ksudBin) {
         rename { 'libm3qksud.so' }
     }
+    from(rootProject.file('prebuilt/payload-r13s-S731U1UES7BZF3.so')) {
+        rename { 'libm3qpayload_r13s.so' }
+    }
     from(ksudA36) {
         rename { 'libm3qksud_a36.so' }
+    }
+    from(ksudR13s) {
+        rename { 'libm3qksud_r13s.so' }
     }
     into(jniOut)
 }
