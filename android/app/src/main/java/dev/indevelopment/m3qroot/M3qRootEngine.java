@@ -62,8 +62,19 @@ final class M3qRootEngine {
     private static final String KSU_MANAGER_PACKAGE = "me.weishu.kernelsu";
     private static final String STAGED_PAYLOAD = "/data/local/tmp/samsu-payload.so";
     private static final String MODULE_RELOAD_HOOK_DIR = "/data/adb/boot-completed.d";
-    private static final String KSUD_SHA256 =
+    private static final String KSUD_SHA256_M3Q =
             "1e1cb6b861d0d4951b7374c12404eee1fb4c02a77240e0500ca571a302396374";
+    private static final String KSUD_SHA256_A36 =
+            "52fd67fcc94b27ad15da44db5f4de55b61f85d373148e6b536fd5c91b3cf79ad";
+    private static final String KSUD_SHA256_R13S =
+            "cad53d0ddea50299afd169614cedb05f81ecad51d8278b0f37579495b34b7a8e";
+
+    private String bundledKsudSha256() {
+        String model = android.os.Build.MODEL;
+        if ("SM-S366V".equals(model)) return KSUD_SHA256_A36;
+        if ("SM-S731U1".equals(model)) return KSUD_SHA256_R13S;
+        return KSUD_SHA256_M3Q;
+    }
     private static final String SAFETY_PREFS = "kernel_run_safety";
     private static final String ATTEMPT_BOOT_ID = "attempt_boot_id";
     private static final String VERIFIED_KSU_BOOT_ID = "verified_ksu_boot_id";
@@ -402,8 +413,8 @@ final class M3qRootEngine {
                 "test \"$(stat -c %s " + source + ")\" = "
                         + ksudOverrideSize + "; ";
         String hashTests = bundledKsud
-                ? "test \"$h1\" = " + KSUD_SHA256 + "; " +
-                  "test \"$h2\" = " + KSUD_SHA256 + "; "
+                ? "test \"$h1\" = " + bundledKsudSha256() + "; " +
+                  "test \"$h2\" = " + bundledKsudSha256() + "; "
                 : "";
         String command = "set -eu; umask 022; mkdir -p /data/adb; " +
                 sizeGuard +
@@ -427,7 +438,7 @@ final class M3qRootEngine {
             return EXIT_TERMINATION_UNCONFIRMED;
         }
         String stageOutput = String.join("\n", stageLines);
-        String expectedMarker = "KSU_STAGE_OK:" + KSUD_SHA256;
+        String expectedMarker = "KSU_STAGE_OK:" + bundledKsudSha256();
         if (stageCode != 0 || !stageOutput.contains(expectedMarker)) {
             if (allowGrantWait
                     && stageOutput.toLowerCase().contains("permission denied")) {
@@ -545,7 +556,7 @@ final class M3qRootEngine {
                 + "fi\n"
                 + (ksudIsBundled()
                         ? "hash=$(sha256sum \"$ksud\"); hash=${hash%% *}\n"
-                          + "if [ \"$hash\" != " + KSUD_SHA256 + " ]; then\n"
+                          + "if [ \"$hash\" != " + bundledKsudSha256() + " ]; then\n"
                           + "  echo M3Q_KSUD_HASH_MISMATCH:$hash\n"
                           + "  exit 125\n"
                           + "fi\n"
