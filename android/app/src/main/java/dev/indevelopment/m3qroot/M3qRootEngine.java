@@ -569,21 +569,15 @@ final class M3qRootEngine {
 
     private int runKernelSuRootCommand(File ksud, String command, int timeoutSeconds,
                                        List<String> output) {
-        /* Resolve an executable ksud path. Preference order:
-         * 1. Staged copy at KSU_LOADER_PATH (from a prior activateKernelSu)
-         * 2. Bundled native lib (nativeLibraryDir — world-readable, executable)
-         * 3. Stage the bundled native lib to /data/local/tmp via Shizuku
-         * 4. The passed-in ksud as last resort */
-        File executable = ksud;
+        /* Resolve an executable ksud at KSU_LOADER_PATH (/data/local/tmp/).
+         * App-private filesDir is noexec, and nativeLibraryDir .so files cannot
+         * be directly executed as processes on Android 16+.  Always stage via
+         * Shizuku to /data/local/tmp where exec is permitted. */
         File staged = new File(KSU_LOADER_PATH);
-        if (staged.isFile() && staged.canExecute()) {
-            executable = staged;
-        } else {
+        if (!staged.isFile() && ShizukuShell.isRunning() && ShizukuShell.isGranted()) {
             File bundled = nativeFile(
                     PayloadStore.bundledKsudLibName(PayloadStore.bundledPayloadIdForDevice()));
-            if (bundled.isFile() && bundled.canExecute()) {
-                executable = bundled;
-            } else if (bundled.isFile() && ShizukuShell.isRunning() && ShizukuShell.isGranted()) {
+            if (bundled.isFile()) {
                 try {
                     Process cp = ShizukuShell.exec(
                             new String[]{"sh", "-c",
@@ -593,13 +587,13 @@ final class M3qRootEngine {
                             new String[]{"PATH=/system/bin:/system/xbin"},
                             "/data/local/tmp");
                     cp.waitFor();
-                    staged = new File(KSU_LOADER_PATH);
-                    if (staged.isFile()) executable = staged;
                 } catch (Exception e) {
                     log("ksud stage error: " + e.getMessage());
                 }
+                staged = new File(KSU_LOADER_PATH);
             }
         }
+        File executable = staged.isFile() ? staged : ksud;
         ProcessBuilder processBuilder = new ProcessBuilder(
                 executable.getAbsolutePath(), "debug", "su", "-g");
         processBuilder.directory(new File("/data/local/tmp"));
