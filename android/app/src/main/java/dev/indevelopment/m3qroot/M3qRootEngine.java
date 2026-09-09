@@ -574,7 +574,7 @@ final class M3qRootEngine {
          * be directly executed as processes on Android 16+.  Always stage via
          * Shizuku to /data/local/tmp where exec is permitted. */
         File staged = new File(KSU_LOADER_PATH);
-        if (!staged.isFile() && ShizukuShell.isRunning() && ShizukuShell.isGranted()) {
+        if (ShizukuShell.isRunning() && ShizukuShell.isGranted()) {
             File bundled = nativeFile(
                     PayloadStore.bundledKsudLibName(PayloadStore.bundledPayloadIdForDevice()));
             if (bundled.isFile()) {
