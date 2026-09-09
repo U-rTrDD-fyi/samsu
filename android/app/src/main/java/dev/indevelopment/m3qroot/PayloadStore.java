@@ -194,6 +194,16 @@ final class PayloadStore {
         return "libm3qpayload.so";
     }
 
+    static String bundledKsudLibName(String payloadId) {
+        if (BUNDLED_PAYLOAD_ID_A36.equals(payloadId)) {
+            return "libm3qksud_a36.so";
+        }
+        if (BUNDLED_PAYLOAD_ID_R13S.equals(payloadId)) {
+            return "libm3qksud_r13s.so";
+        }
+        return "libm3qksud.so";
+    }
+
     private static String bundledModelFor(String payloadId) {
         if (BUNDLED_PAYLOAD_ID_S938B.equals(payloadId)) return "SM-S938B";
         if (BUNDLED_PAYLOAD_ID_S936B.equals(payloadId)) return "SM-S936B";

@@ -569,27 +569,37 @@ final class M3qRootEngine {
 
     private int runKernelSuRootCommand(File ksud, String command, int timeoutSeconds,
                                        List<String> output) {
+        /* Resolve an executable ksud path. Preference order:
+         * 1. Staged copy at KSU_LOADER_PATH (from a prior activateKernelSu)
+         * 2. Bundled native lib (nativeLibraryDir — world-readable, executable)
+         * 3. Stage the bundled native lib to /data/local/tmp via Shizuku
+         * 4. The passed-in ksud as last resort */
+        File executable = ksud;
         File staged = new File(KSU_LOADER_PATH);
-        /* Ensure the ksud binary is at an executable path. App-private filesDir
-         * is noexec on modern Android; stage to /data/local/tmp via Shizuku. */
-        if (!staged.isFile() || !staged.canExecute()) {
-            if (ShizukuShell.isRunning() && ShizukuShell.isGranted()) {
+        if (staged.isFile() && staged.canExecute()) {
+            executable = staged;
+        } else {
+            File bundled = nativeFile(
+                    PayloadStore.bundledKsudLibName(PayloadStore.bundledPayloadIdForDevice()));
+            if (bundled.isFile() && bundled.canExecute()) {
+                executable = bundled;
+            } else if (bundled.isFile() && ShizukuShell.isRunning() && ShizukuShell.isGranted()) {
                 try {
-                    String src = shellQuote(ksud.getAbsolutePath());
-                    String dst = shellQuote(KSU_LOADER_PATH);
                     Process cp = ShizukuShell.exec(
-                            new String[]{"sh", "-c", "cp " + src + " " + dst
-                                    + " && chmod 755 " + dst},
+                            new String[]{"sh", "-c",
+                                    "cp " + shellQuote(bundled.getAbsolutePath()) + " "
+                                    + shellQuote(KSU_LOADER_PATH)
+                                    + " && chmod 755 " + shellQuote(KSU_LOADER_PATH)},
                             new String[]{"PATH=/system/bin:/system/xbin"},
                             "/data/local/tmp");
                     cp.waitFor();
+                    staged = new File(KSU_LOADER_PATH);
+                    if (staged.isFile()) executable = staged;
                 } catch (Exception e) {
                     log("ksud stage error: " + e.getMessage());
                 }
-                staged = new File(KSU_LOADER_PATH);
             }
         }
-        File executable = (staged.isFile() && staged.canExecute()) ? staged : ksud;
         ProcessBuilder processBuilder = new ProcessBuilder(
                 executable.getAbsolutePath(), "debug", "su", "-g");
         processBuilder.directory(new File("/data/local/tmp"));
