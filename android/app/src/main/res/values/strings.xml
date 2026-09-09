@@ -7,7 +7,7 @@
     <string name="status_checking">Checking root status</string>
     <string name="status_checking_detail">Verifying KernelSU and Shizuku connection.</string>
     <string name="status_refresh">Refresh status</string>
-    <string name="root_activate">Hold to root</string>
+    <string name="root_activate">Root</string>
     <string name="run_reboot_check">Reboot and check status</string>
     <string name="run_kernel_su_activate">Activate KernelSU</string>
     <string name="run_reboot_retry">Hold to reboot</string>

@@ -1,7 +1,7 @@
 package dev.indevelopment.m3qroot;
 
 final class RootSafetyPolicy {
-    private static final long MIN_ROOT_BOOT_UPTIME_MILLIS = 180_000L;
+    private static final long MIN_ROOT_BOOT_UPTIME_MILLIS = 120_000L;
 
     private RootSafetyPolicy() {
     }

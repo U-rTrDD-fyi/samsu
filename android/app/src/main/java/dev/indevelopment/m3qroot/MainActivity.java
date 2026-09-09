@@ -211,7 +211,7 @@ public final class MainActivity extends AppCompatActivity {
     }
 
     private void bindActions() {
-        bindHoldAction(run, "Root", 700L, this::onRunHoldAction);
+        run.setOnClickListener(v -> { append("Root triggered"); onRunHoldAction(); });
         bindHoldAction(reapplyModules, "Module reload", HOLD_TO_CONFIRM_MILLIS, this::startModuleReload);
         bindHoldAction(restartZygote, "Soft reboot", HOLD_TO_CONFIRM_MILLIS, this::startSoftBoot);
         bindHoldAction(unrootReboot, "Unroot", HOLD_TO_CONFIRM_MILLIS, this::startUnrootReboot);
@@ -985,7 +985,7 @@ public final class MainActivity extends AppCompatActivity {
             unrootReboot.setEnabled(false);
             statusRefresh.setEnabled(true);
             getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-            setStatus("Wait 180 seconds", STATUS_NEUTRAL);
+            setStatus("Wait 120 seconds", STATUS_NEUTRAL);
             setStatusDetail("Device was freshly booted, wait for idle.");
         });
     }
@@ -1024,8 +1024,8 @@ public final class MainActivity extends AppCompatActivity {
             run.setVisibility(View.VISIBLE);
             setStatus("Unrooted", STATUS_NEUTRAL);
             setStatusDetail(deviceSupported()
-                    ? "Device verified - Wait 180s after boot"
-                    : "Wait 180s after boot");
+                    ? "Device verified - Wait 120s after boot"
+                    : "Wait 120s after boot");
             run.setText(R.string.root_activate);
             run.setEnabled(deviceSupported());
         }
@@ -1188,7 +1188,7 @@ public final class MainActivity extends AppCompatActivity {
         if (!file.isFile()) {
             append("No run log to share yet.");
             setStatus("No diagnostic report", STATUS_NEUTRAL);
-            setStatusDetail("Run Hold to root once to generate a report.");
+            setStatusDetail("Run Root once to generate a report.");
             return;
         }
         try {

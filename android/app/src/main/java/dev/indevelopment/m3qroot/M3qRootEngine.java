@@ -52,6 +52,7 @@ final class M3qRootEngine {
     private static final String PAYLOAD = "libm3qpayload.so";
     private static final String PAYLOAD_S938B = "libm3qpayload_s938b.so";
     private static final String KSUD = "libm3qksud.so";
+    private static final String KSUD_A36 = "libm3qksud_a36.so";
     private static final String KSU_LOADER_PATH =
             "/data/local/tmp/ksud-s25u-kdp";
     private static final String KSU_STAGE_PATH = "/data/local/tmp/.ksud-stage";
@@ -864,8 +865,12 @@ final class M3qRootEngine {
 
     private File activeKsud() {
         File override = ksudOverride;
-        return (override != null && override.isFile())
-                ? override : nativeFile(KSUD);
+        if (override != null && override.isFile()) return override;
+        if ("SM-S366V".equals(android.os.Build.MODEL)) {
+            File a36 = nativeFile(KSUD_A36);
+            if (a36.isFile()) return a36;
+        }
+        return nativeFile(KSUD);
     }
 
     private boolean ksudIsBundled() {
